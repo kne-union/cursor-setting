@@ -40,7 +40,7 @@ alwaysApply: true
 ### 路径
 
 ```
-~/.kne_document/indexed/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{解决问题}.json
+~/.kne_document/experience/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{解决问题}.json
 ```
 
 - `projectName`：GitHub 仓库名（不含 owner）
@@ -139,4 +139,4 @@ alwaysApply: true
 - 工作区不干净时继续改代码
 - 未验收就升版本/commit/push/PR
 - 功能/修复 PR 不带 version bump
-- PR 成功后漏写 `~/.kne_document/indexed/...` 总结 JSON
+- PR 成功后漏写 `~/.kne_document/experience/...` 总结 JSON
