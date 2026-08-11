@@ -1,15 +1,13 @@
 ---
-description: 查询 @kne npm 包或 remote-loader 远程组件文档时，先读/建 ~/.kne_document_indexed 索引再回答
+description: 查询 @kne / remote-loader 组件文档时，用 @kne/npm-tools 拉取并索引到 ~/.kne_document_indexed
 alwaysApply: true
 ---
 
-# KNE 文档搜索
+# KNE 文档搜索（@kne/npm-tools）
 
-涉及 `@kne/*` 包 API/用法，或 `remote-loader` 远程组件（如 `components-core:FormInfo`）时，**禁止凭记忆编造 API**。先查本地索引，缺失再拉取 README、按下方算法建索引后查询。
+涉及 `@kne/*` 包 API/用法，或 `remote-loader` 远程组件（如 `components-core:FormInfo`）时，**禁止凭记忆编造 API**。必须用 `@kne/npm-tools` 获取 README、切分索引后再回答。
 
-索引根目录：`~/.kne_document_indexed`（即 `$HOME/.kne_document_indexed`）。
-
-解析算法对齐：`fastify-live-components-site/libs/ai/catalog.js`（`extractDocMd` → 按 `# ` 切分 → `@kne/md-doc` `parse`）。
+索引根目录：环境变量 `KNE_DOCUMENT_INDEXED_DIR`，默认 `~/.kne_document_indexed`。
 
 ## 何时触发
 
@@ -17,76 +15,96 @@ alwaysApply: true
 - 使用 / 查阅 `src/preset.js` 里 `remoteLoaderPreset` 的 remote 组件
 - 用户问某组件 props、示例、目录结构
 
-## 索引目录结构
+## 强制工具（禁止手写切分）
+
+通过 Node 调用（优先当前项目已装的 `@kne/npm-tools`；否则 `npx` / 本机已有安装路径）：
+
+```js
+const {
+  getRemoteModuleDocument,
+  getNpmPackageDocument,
+  buildDocumentIndex,
+  getDocumentIndexDir
+} = require('@kne/npm-tools');
+```
+
+| API | 用途 |
+|-----|------|
+| `getRemoteModuleDocument(remote)` | remote-loader 参数 → 解析部署地址并拉取 README |
+| `getNpmPackageDocument(name)` | npm 包 README（`@kne/load-npm-info`） |
+| `buildDocumentIndex({ id, version, readme, ... })` | DOC_MD 切分 + 落盘 `meta/index/components.json` |
+| `getDocumentIndexDir()` | 解析/创建索引根目录 |
+
+**禁止**自行 `extractDocMd` / 手写 `# ` 切分 / 直接 `require('@kne/md-doc').parse` 替代上述流程（除非 npm-tools 不可用且用户允许临时兜底）。
+
+## 流程
+
+1. **先查索引**：`<root>/<id>/<version>/` 下已有非空 `index.json` + `components.json` → 直接读，不重复拉取
+2. **缺失则拉取 + 建索引**
+3. **再按组件 / 关键字查询**作答
+
+### 远程组件
+
+1. 从 `src/preset.js`（或等价）取出 remotes 项：`{ url, tpl, remote, defaultVersion }`
+2. 调用：
+
+```js
+const doc = await getRemoteModuleDocument({
+  url, tpl, remote, defaultVersion // 或 version
+});
+await buildDocumentIndex({
+  id: doc.remote,
+  version: doc.version,
+  readme: doc.readme,
+  readmeUrl: doc.readmeUrl,
+  source: 'remote'
+});
+```
+
+开发态 `url: '/'` 且本地即该 remote 源码时：可读仓库根 `README.md`，再 `buildDocumentIndex`。
+
+### `@kne/` npm 包
+
+```js
+const doc = await getNpmPackageDocument('@kne/xxx'); // 可带 @version
+await buildDocumentIndex({
+  id: doc.packageName,
+  version: doc.version,
+  packageName: doc.packageName,
+  readme: doc.readme,
+  source: 'npm'
+});
+```
+
+本地已装包也可先读 `node_modules` 下 README，再交给 `buildDocumentIndex`（切分仍必须走 npm-tools）。
+
+## 索引结构
 
 ```
 ~/.kne_document_indexed/<id>/<version>/
-  meta.json         # { packageName, version, source, readmePath|readmeUrl, builtAt }
+  meta.json
   index.json        # [{ name, token, summary }]
-  components.json   # { [name]: { name, token, summary, api, examples: [{ id, title, description, code }] } }
+  components.json   # { [name]: { name, token, summary, api, examples } }
 ```
 
-- npm `@kne/*`：`<id>` = 包名（如 `@kne/react-fetch`），`<version>` 取 `package.json` version
-- 远程组件：`<id>` = remote 名（如 `components-core`），`<version>` 取 `defaultVersion`
-- `token` 格式：`{id}:{componentName}`（如 `components-core:FormInfo`）
+- 远程：`<id>` = remote 名（如 `components-core`）
+- npm：`<id>` = 包名（如 `@kne/react-fetch`）
+- `token`：`{id}:{componentName}`（如 `components-core:FormInfo`）
 
-已有完整 `index.json` + `components.json` 且非空 → **直接用，不要重复拉取**。
-
-## 1. 获取 README
-
-### A. `@kne/` npm 包
-
-1. 在当前项目解析：`node_modules/@kne/<name>/`（注意 hoist / pnpm 路径，可用 `require.resolve('@kne/<name>/package.json')` 定位根目录）
-2. 读取该根目录 `README.md`
-
-### B. 远程组件（remote-loader）
-
-1. 读项目 `src/preset.js`（或等价入口）中 `remoteLoaderPreset({ remotes: { ... } })`
-2. 取目标 remote：`{ url, tpl, remote, defaultVersion }`
-3. 展开资源基址：把 `tpl` 中 `{{url}}` / `{{remote}}` / `{{version}}` 替换为实际值（version = `defaultVersion`）
-4. `remoteEntry` 目录 = 展开后的 build 基址；README 按顺序尝试（取第一个 HTTP 200）：
-   - `{base}/README.md`（与 `remoteEntry.js` 同目录）
-   - `{base}/../README.md`（version 根，与 `build/` 平级；常见 CDN 落在此处）
-5. `curl` / `WebFetch` 拉取全文
-
-开发态 `url: '/'` 且本地即该 remote 源码时：改读当前仓库根 `README.md`。
-
-## 2. 分割解析并落盘
-
-对 README 文本：
-
-1. 若存在 `<!--START_SECTION:DOC_MD-->...<!--END_SECTION:DOC_MD-->`，只取中间；否则用全文
-2. 按 `\n(?=# )` 切成以 `# ` 开头的组件块
-3. 每块用 `@kne/md-doc` 的 `parse` 得到 `{ name, summary, api, example }`
-4. 写入上述 `meta.json` / `index.json` / `components.json`
-   - `examples` ← `(example.list || []).map((ex,i) => ({ id: String(i), title, description, code }))`
-   - `summary` 入库时可去 HTML 标签
-
-Node 示例（项目或任意已装 `@kne/md-doc` 的环境）：
-
-```js
-const { parse } = require('@kne/md-doc');
-const { buildCatalogFromReadme } = require('/path/to/fastify-live-components-site/libs/ai/catalog.js');
-// 或内联同等逻辑后：
-// const { index, components } = buildCatalogFromReadme(readme, id);
-```
-
-无 `@kne/md-doc` 时：可临时 `npm i @kne/md-doc` 到临时目录，或复用本机已有 `fastify-live-components-site/node_modules`。
-
-## 3. 查询方式
+## 查询
 
 | 意图 | 做法 |
 |------|------|
-| 有哪些组件 | 读 `<id>/<version>/index.json` |
-| 某组件 API / 概述 | 读 `components.json[name].api` / `.summary` |
-| 示例代码 | 读 `components.json[name].examples` |
-| 关键字（文案/API/示例） | 在 `~/.kne_document_indexed` 下 `rg -i "<keyword>"`（可加 `--glob '*.json'`） |
-| 跨库定位 token | `rg '"token": "[^"]*FormInfo"' ~/.kne_document_indexed` |
+| 组件列表 | 读 `index.json` |
+| API / 概述 | `components.json[name].api` / `.summary` |
+| 示例 | `components.json[name].examples` |
+| 关键字 | `rg -i "<keyword>" ~/.kne_document_indexed`（可 `--glob '*.json'`） |
 
-回答时优先引用索引中的 **api / examples.code**，并注明 `token` 与版本。
+回答优先引用索引中的 **api / examples.code**，并注明 `token` 与版本。
 
 ## 禁止
 
-- 未查索引就编造 `@kne/*` 或远程组件的 props / 事件 / 示例
-- 索引缺失时不拉取 README 就直接猜测
-- 把整份巨型 README 无切分地塞进上下文（必须先索引/按组件取用）
+- 未查索引就编造 props / 事件 / 示例
+- 索引缺失时不调用 npm-tools 拉取/建索引就猜测
+- 整份巨型 README 无切分塞进上下文
+- 绕过 `@kne/npm-tools` 自造索引格式
