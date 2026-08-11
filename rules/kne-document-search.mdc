@@ -1,13 +1,15 @@
 ---
-description: 查询 @kne / remote-loader 组件文档时，用 @kne/npm-tools 拉取并索引到 ~/.kne_document_indexed
+description: 查询 @kne / remote 文档时用 npm-tools 建索引，并分层检索省 token
 alwaysApply: true
 ---
 
 # KNE 文档搜索（@kne/npm-tools）
 
-涉及 `@kne/*` 包 API/用法，或 `remote-loader` 远程组件（如 `components-core:FormInfo`）时，**禁止凭记忆编造 API**。必须用 `@kne/npm-tools` 获取 README、切分索引后再回答。
+涉及 `@kne/*` 包 API/用法，或 `remote-loader` 远程组件（如 `components-core:FormInfo`）时，**禁止凭记忆编造 API**。必须用 `@kne/npm-tools` 获取 README、切分索引后再按下方阶梯检索作答。
 
 索引根目录：环境变量 `KNE_DOCUMENT_INDEXED_DIR`，默认 `~/.kne_document_indexed`。
+
+原则：**先窄后宽、先路径后字段、先摘要后深读。** 禁止整份 README / `components.json` 塞进上下文。
 
 ## 何时触发
 
@@ -39,9 +41,9 @@ const {
 
 ## 流程
 
-1. **先查索引**：`<root>/<id>/<version>/` 下已有非空 `index.json` + `components.json` → 直接读，不重复拉取
-2. **缺失则拉取 + 建索引**
-3. **再按组件 / 关键字查询**作答
+1. **先查索引**：`<root>/<id>/<version>/` 下已有非空 `index.json` + `components.json` → 不重复拉取
+2. **缺失则拉取 + 建索引**（README 勿贴进对话）
+3. **再按检索阶梯查询**作答
 
 ### 远程组件
 
@@ -91,20 +93,34 @@ await buildDocumentIndex({
 - npm：`<id>` = 包名（如 `@kne/react-fetch`）
 - `token`：`{id}:{componentName}`（如 `components-core:FormInfo`）
 
-## 查询
+## 检索阶梯（必须按序）
+
+1. **定范围**：从 `preset` / 包名确定 `<id>`；version 取索引已有或 `defaultVersion`。先只搜 `~/.kne_document_indexed/<id>/<version>/`，禁止无必要全库扫。
+2. **确保索引**：该目录无非空 `index.json` + `components.json` → 走上方 npm-tools 建索引；**禁止**把 README 全文塞进对话。
+3. **列表/定位（轻）**：只 Read / `jq` **`index.json`**（`name` / `token` / `summary`）。用 1–3 个关键词或确切组件名匹配；候选组件 ≤ **3**。
+4. **单组件投影**：对命中的 **一个** `name`，用 `jq` 取 `components.json[name]` 子集：
+   - 默认：`name`, `token`, `summary`, `api`
+   - 需要示例时再取 `examples`，默认最多 **2** 条（或用户点名的那条）
+   - **禁止** Read 整个 `components.json`
+5. **关键字兜底**：仅当 index 未命中时，在该 `<id>/<version>/` 下 `rg -n -i`，**只看匹配行**；仍用 jq 抽单组件，不把 rg 大段上下文贴进对话。
+6. **跨库**：仅当用户未指定 remote/包且同库无命中时，才对根目录 `rg -l` 限候选 ≤3 个文件路径，再按上序深读。
+
+### 意图对照
 
 | 意图 | 做法 |
 |------|------|
-| 组件列表 | 读 `index.json` |
-| API / 概述 | `components.json[name].api` / `.summary` |
-| 示例 | `components.json[name].examples` |
-| 关键字 | `rg -i "<keyword>" ~/.kne_document_indexed`（可 `--glob '*.json'`） |
+| 组件列表 | 只读 `index.json` |
+| API / 概述 | jq 单组件的 `api` / `summary` |
+| 示例 | jq 单组件 `examples`，≤2 条 |
+| 关键字 | 同库 `rg` 匹配行 → jq 单组件 |
 
-回答优先引用索引中的 **api / examples.code**，并注明 `token` 与版本。
+回答优先引用 **api** + 必要 **examples.code**，并注明 `token` 与版本。多候选时最多列 3 个 name/token，再确认或取最相关 1 个深读。
 
 ## 禁止
 
 - 未查索引就编造 props / 事件 / 示例
 - 索引缺失时不调用 npm-tools 拉取/建索引就猜测
-- 整份巨型 README 无切分塞进上下文
+- 整份巨型 README 或整份 `components.json` 塞进上下文
+- 一次贴出某组件全部 `examples`
+- 无范围 `rg` 整个 `~/.kne_document_indexed` 并把输出全贴回对话
 - 绕过 `@kne/npm-tools` 自造索引格式
