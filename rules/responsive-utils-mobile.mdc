@@ -1,0 +1,47 @@
+---
+description: KNE 前端移动端适配统一使用 @kne/responsive-utils
+alwaysApply: true
+---
+
+# 移动端适配（@kne/responsive-utils）
+
+凡涉及移动端布局/样式/分支判断，统一使用 `@kne/responsive-utils`，禁止手写 `@media (max-width: 768px)` 或自造断点常量。
+
+## 断点
+
+- 移动端阈值：`MOBILE_BREAKPOINT` = `md` = **768px**
+
+## SCSS
+
+```scss
+@use '~@kne/responsive-utils/scss' as resp;
+```
+
+- 保留项目既有的 `~` 导入写法，不要擅自改路径。
+- **只用** `@include resp.mobile-container { ... }`（容器查询）。
+- 不要写 `resp.mobile`（视口 `@media`）；example 手机预览依赖容器查询，`mobile-container` 即可覆盖预览与真实移动端。
+- 其他断点用 `resp.container-down(sm|md|lg|...)`，不要混用视口版 `resp.down` / `resp.up` / `resp.mobile`。
+
+```scss
+@include resp.mobile-container {
+  .foo {
+    width: 120px;
+  }
+}
+```
+
+## JS / React
+
+```js
+import { useIsMobile } from '@kne/responsive-utils';
+
+const isMobile = useIsMobile();
+```
+
+- 布局分支、条件渲染用 `useIsMobile`，不要自己 `matchMedia('(max-width: 768px)')`。
+- 任意 query 用 `useMediaQuery`；多断点用 `useBreakpoint`。
+- 弹层 / 滚动容器用 `usePopupContainer` / `useScrollElement`，配合 `RESPONSIVE_BOUNDARY_CLASS` / `RESPONSIVE_SCROLL_CLASS`。
+
+## 依赖
+
+使用前确认当前项目 `package.json` 已声明 `@kne/responsive-utils`；缺失则先安装再改代码。
