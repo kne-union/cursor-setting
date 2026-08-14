@@ -1,10 +1,31 @@
 ---
-description: 改代码一律走检查工作区→建分支→开发→验收→升版本提交→Push/PR→写问题解决总结 流程
+description: 仅 kne-union：开发交付流程；结束后发出 DEVELOPMENT_COMPLETE 信号供总结规则消费
 alwaysApply: true
 ---
 
-# 开发流程
+# 开发流程（仅 kne-union）
+
+## 适用范围
+
+**仅当**当前仓库属于 [kne-union](https://github.com/kne-union) 时生效。判定任一即可：
+
+- `git remote -v` 含 `github.com/kne-union/`（或 `git@github.com:kne-union/`）
+- 用户明确说明正在 kne-union 仓库内开发
+
+**非 kne-union 项目：完全忽略本规则**（不要强制干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。
+
+本规则只管开发交付，并在结束时**发出信号**。不在本规则内写总结 JSON。
+
+独立规则：
+
+- 相似经验检索：`experience-similar-search`（读取）
+- 任务后总结：`experience-summary-write`（只消费下方信号）
+- `@kne` / remote 文档：`kne-document-search`
+
+---
+
 只要需要修改代码，一律按下列流程执行。不需要「开始需求」等触发词。
+
 ## 1. 检查工作区
 - 改代码前执行 git status（及必要的 git diff）
 - 若存在未提交改动：提示用户并终止，不得继续修改
@@ -34,109 +55,27 @@ alwaysApply: true
 - 创建 PR，base 为主分支；Summary 写明版本号变化
 - 不 merge、不 force push、不改 git config
 - 「PR」不等于「发版」；publish 仅在用户明确说「发布/发版」后执行
-## 7. 写问题解决总结（PR 创建成功后立即执行）
-拿到 PR URL 后，立刻写入会话总结 JSON（不 merge、不等发版）。会话中途方案演进落盘时一次性汇总。
+## 7. 判定并输出「开发是否结束」信号
 
-### 路径
+PR 创建成功（已拿到 PR URL）后，在回复中**单独输出**下列信号块（原文照抄结构，填真实值）。未到此步、PR 失败、或流程中止：**不要**输出该信号。
 
-```
-~/.kne_document/experience/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{解决问题}.json
-```
-
-- `projectName`：GitHub 仓库名（不含 owner）
-- 时间戳：写文件时本地时间，精确到秒
-- `{解决问题}`：短标题文件名，与 JSON 内 `title` 对齐；去掉 `/\:*?"<>|`，空白改 `-`，建议 ≤50 字
-- 目录不存在则创建；**不要**把该文件写进业务仓库
-- 与组件文档索引 `~/.kne_document_indexed` 分开
-
-### JSON（schemaVersion: 1）
-
-必填顶层：`schemaVersion`、`writtenAt`、`title`、`description`、`project`、`requirement`、`proposals`、`finalSolution`、`score`；有 PR 时写 `pr`。
-
-```json
-{
-  "schemaVersion": 1,
-  "writtenAt": "2026-08-11T17:27:00+08:00",
-  "title": "远程组件文档索引API",
-  "description": "一段话总结：解决了什么、怎么解决、结果如何",
-  "project": {
-    "name": "npm-tools",
-    "githubUrl": "https://github.com/kne-union/npm-tools",
-    "defaultBranch": "master"
-  },
-  "pr": {
-    "url": "https://github.com/kne-union/npm-tools/pull/72",
-    "number": 72,
-    "branch": "cursor/document-index",
-    "title": "feat: 文档索引 API"
-  },
-  "requirement": {
-    "summary": "一句话需求摘要",
-    "detail": "用户原始需求完整表述",
-    "acceptanceNotes": "用户验收关键表态"
-  },
-  "proposals": [
-    {
-      "id": 1,
-      "proposedAt": "2026-08-11T16:00:00+08:00",
-      "title": "方案标题",
-      "description": "该次解决方案要点",
-      "status": "rejected"
-    },
-    {
-      "id": 2,
-      "proposedAt": "2026-08-11T16:20:00+08:00",
-      "title": "修订方案",
-      "description": "…",
-      "status": "accepted"
-    }
-  ],
-  "finalSolution": {
-    "proposalId": 2,
-    "summary": "用户最终同意并落地的做法",
-    "keyChanges": ["关键改动要点"],
-    "versionBump": "0.1.57 → 0.1.58",
-    "codeSnippets": [
-      {
-        "id": 1,
-        "title": "片段标题",
-        "path": "lib/example.js",
-        "language": "javascript",
-        "startLine": 1,
-        "endLine": 20,
-        "symbol": "fnName",
-        "why": "为何关键",
-        "code": "// 摘录 ≤40 行，勿贴整文件"
-      }
-    ]
-  },
-  "score": {
-    "overall": 8,
-    "scale": { "min": 1, "max": 10 },
-    "dimensions": {
-      "requirementFit": 9,
-      "implementationQuality": 8,
-      "processCompliance": 9,
-      "userSatisfaction": 7
-    },
-    "rationale": "结合实现效果与用户评价的打分说明（必填）",
-    "userFeedbackSignals": ["从对话抽取的评价信号"]
-  }
-}
+```text
+DEVELOPMENT_COMPLETE
+project: <GitHub 仓库名，不含 owner>
+branch: <当前分支>
+pr_url: <PR URL>
+pr_number: <数字>
+version_bump: <如 0.1.57 → 0.1.58；无则 none>
+acceptance: <用户验收原话摘要>
 ```
 
-### 字段要点
-
-- `description`：整次会话总结；`requirement.summary` 只压需求本身
-- `proposals[].status`：`proposed` | `rejected` | `accepted` | `superseded`；记录**每一次** AI 方案
-- `finalSolution.proposalId` 指向 `accepted` 项
-- `codeSnippets`：最终落地关键片段，通常 2–5 段、每段 ≤40 行；纯规则/文档可为 `[]`
-- 打分 1–10：验收通过无明确好评 → 维度常见 6–8；多次返工/明确否定 → 压低 `userSatisfaction` / `requirementFit`；测试通过且改动克制 → 提高 `implementationQuality`；`overall` ≈ 四维平均四舍五入，可依短板略下调；`rationale` 必填
-
-写完后在回复中告知文件路径。
+- 本规则到此结束；**不要**在本规则内写 `~/.kne_document/experience` 文件
+- 总结落盘由 `experience-summary-write` 在收到上述信号后执行
 
 ## 禁止
+- 在非 kne-union 仓库套用本流程
 - 工作区不干净时继续改代码
 - 未验收就升版本/commit/push/PR
 - 功能/修复 PR 不带 version bump
-- PR 成功后漏写 `~/.kne_document/experience/...` 总结 JSON
+- PR 未成功却输出 `DEVELOPMENT_COMPLETE`
+- 输出信号的同时自行写总结（应留给 `experience-summary-write`）
