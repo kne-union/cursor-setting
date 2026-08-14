@@ -1,0 +1,132 @@
+---
+description: 仅在收到 DEVELOPMENT_COMPLETE 信号（或用户明确要求）时写入 experience 总结 JSON
+alwaysApply: true
+---
+
+# experience 问题解决总结（写入）
+
+本规则独立于开发流程步骤与相似问题检索。只消费上级信号并落盘，不自行判断「开发是否结束」。
+
+## 何时执行（门禁）
+
+**仅当**出现以下之一时执行写入；否则整份规则忽略（不要写文件、不要追问是否要总结）：
+
+1. 同一次回复上下文中已出现开发流程发出的信号块，且以 `DEVELOPMENT_COMPLETE` 开头（见 `development-workflow` 第 7 步）
+2. 用户明确要求「写经验总结 / 落盘 experience / 写问题解决总结」
+
+未收到信号、仅完成开发未建 PR、或只有中间状态汇报 → **不执行**。
+
+收到信号后：不 merge、不等发版；按信号与会话内容一次性汇总写入。写完后在回复中告知文件路径。
+
+## 路径
+
+```
+~/.kne_document/experience/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{解决问题}.json
+```
+
+- `projectName`：优先用信号里的 `project`；否则用 GitHub 仓库名（不含 owner）
+- 时间戳：写文件时本地时间，精确到秒
+- `{解决问题}`：短标题文件名，与 JSON 内 `title` 对齐；去掉 `/\:*?"<>|`，空白改 `-`，建议 ≤50 字
+- 目录不存在则创建；**不要**把该文件写进业务仓库
+- 与组件文档索引 `~/.kne_document_indexed` 分开
+
+## 信号 → 字段映射
+
+| 信号字段 | 写入位置 |
+|----------|----------|
+| `pr_url` / `pr_number` / `branch` | `pr.url` / `pr.number` / `pr.branch` |
+| `version_bump` | `finalSolution.versionBump`（`none` 则省略或写原样） |
+| `acceptance` | `requirement.acceptanceNotes` |
+| `project` | `project.name` |
+
+其余字段（`proposals`、`finalSolution`、`score` 等）从本会话整理，不得编造未发生的方案。
+
+## JSON（schemaVersion: 1）
+
+必填顶层：`schemaVersion`、`writtenAt`、`title`、`description`、`project`、`requirement`、`proposals`、`finalSolution`、`score`；有 PR 时写 `pr`。
+
+```json
+{
+  "schemaVersion": 1,
+  "writtenAt": "2026-08-11T17:27:00+08:00",
+  "title": "远程组件文档索引API",
+  "description": "一段话总结：解决了什么、怎么解决、结果如何",
+  "project": {
+    "name": "npm-tools",
+    "githubUrl": "https://github.com/kne-union/npm-tools",
+    "defaultBranch": "master"
+  },
+  "pr": {
+    "url": "https://github.com/kne-union/npm-tools/pull/72",
+    "number": 72,
+    "branch": "cursor/document-index",
+    "title": "feat: 文档索引 API"
+  },
+  "requirement": {
+    "summary": "一句话需求摘要",
+    "detail": "用户原始需求完整表述",
+    "acceptanceNotes": "用户验收关键表态"
+  },
+  "proposals": [
+    {
+      "id": 1,
+      "proposedAt": "2026-08-11T16:00:00+08:00",
+      "title": "方案标题",
+      "description": "该次解决方案要点",
+      "status": "rejected"
+    },
+    {
+      "id": 2,
+      "proposedAt": "2026-08-11T16:20:00+08:00",
+      "title": "修订方案",
+      "description": "…",
+      "status": "accepted"
+    }
+  ],
+  "finalSolution": {
+    "proposalId": 2,
+    "summary": "用户最终同意并落地的做法",
+    "keyChanges": ["关键改动要点"],
+    "versionBump": "0.1.57 → 0.1.58",
+    "codeSnippets": [
+      {
+        "id": 1,
+        "title": "片段标题",
+        "path": "lib/example.js",
+        "language": "javascript",
+        "startLine": 1,
+        "endLine": 20,
+        "symbol": "fnName",
+        "why": "为何关键",
+        "code": "// 摘录 ≤40 行，勿贴整文件"
+      }
+    ]
+  },
+  "score": {
+    "overall": 8,
+    "scale": { "min": 1, "max": 10 },
+    "dimensions": {
+      "requirementFit": 9,
+      "implementationQuality": 8,
+      "processCompliance": 9,
+      "userSatisfaction": 7
+    },
+    "rationale": "结合实现效果与用户评价的打分说明（必填）",
+    "userFeedbackSignals": ["从对话抽取的评价信号"]
+  }
+}
+```
+
+## 字段要点
+
+- `description`：整次会话总结；`requirement.summary` 只压需求本身
+- `proposals[].status`：`proposed` | `rejected` | `accepted` | `superseded`；记录**每一次** AI 方案
+- `finalSolution.proposalId` 指向 `accepted` 项
+- `codeSnippets`：最终落地关键片段，通常 2–5 段、每段 ≤40 行；纯规则/文档可为 `[]`
+- 打分 1–10：验收通过无明确好评 → 维度常见 6–8；多次返工/明确否定 → 压低 `userSatisfaction` / `requirementFit`；测试通过且改动克制 → 提高 `implementationQuality`；`overall` ≈ 四维平均四舍五入，可依短板略下调；`rationale` 必填
+
+## 禁止
+
+- 无 `DEVELOPMENT_COMPLETE` 且无用户明确要求时写入
+- 自行根据「大概做完了」判断并落盘
+- 把总结文件写进业务仓库

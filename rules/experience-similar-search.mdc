@@ -3,9 +3,11 @@ description: 动手前在 ~/.kne_document/experience 分层检索相似经验，
 alwaysApply: true
 ---
 
-# experience 相似问题检索
+# experience 相似问题检索（读取）
 
-开始改代码、排错，或用户问「怎么做」且可能有历史经验时：在开发流程**第 3 步动手前**先查 `~/.kne_document/experience`。第 7 步负责**写入**；本规则负责**读取**。无目录 / 无命中 → 一句话带过，直接开发，不空转。
+本规则独立于开发流程、问题解决总结写入与 KNE 文档搜索。只负责动手前**读取** `~/.kne_document/experience`。
+
+开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续，不空转。写入规范见 `experience-summary-write`。
 
 路径：`~/.kne_document/experience/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{title}.json`
 
