@@ -1,11 +1,11 @@
 ---
-description: 动手前在 ~/.kne_document/experience/business|library 分层检索可复用经验，省 token
+description: 动手前在 ~/.kne_document/experience/business|library|process 分层检索可复用经验，省 token
 alwaysApply: true
 ---
 
 # 可复用经验检索（读取）
 
-本规则独立于工作日志写入与经验提炼。只负责动手前**读取** `~/.kne_document/experience` 下的经验卡（`business` / `library`）。不扫 `worklog/`。
+本规则独立于工作日志写入与经验提炼。只负责动手前**读取** `~/.kne_document/experience` 下的经验卡（`business` / `library` / `process`）。不扫 `worklog/`。
 
 开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续。写入/补充见 `experience-distill-write`。
 
@@ -16,6 +16,7 @@ alwaysApply: true
 ```text
 experience/business/{projectName}/{stableSlug}.json
 experience/library/{artifactSlug}/{stableSlug}.json
+experience/process/{topicSlug}/{stableSlug}.json
 ```
 
 ## 原则
@@ -26,9 +27,10 @@ experience/library/{artifactSlug}/{stableSlug}.json
 
 1. **抽词**：从当前需求抽 **1–3** 个实词（组件名 / 包名 / 动作），勿用长句当 query。
 2. **定类别范围**：
-   - 偏组件/包用法 → 先搜 `experience/library/`（可再限 `artifactSlug` 子目录）
-   - 偏本仓业务流程 → 先搜 `experience/business/<projectName>/`
-   - 不确定 → 两类各窄搜，合计候选仍 ≤3
+   - 偏组件/包用法或场景 → 先搜 `experience/library/`（可再限 `artifactSlug` 子目录）
+   - 偏本仓业务逻辑 → 先搜 `experience/business/<projectName>/`
+   - 偏发版 / PR / 升版本 / CI 发布 → 先搜 `experience/process/`（可再限 `topicSlug`，如 `publish`）
+   - 不确定 → 按意图最多搜两类，合计候选仍 ≤3
 3. **文件名零解析**：用 `find … -iname '*关键词*'` / `ls` 粗筛，**不读文件内容**。
 4. **浅内容**：对候选 `rg -n -i '关键词' --glob '*.json'`，**只看匹配行**；优先 `"title"` / `"problem"` / `"solution"` / `"keywords"`。
 5. **摘要投影**（每条最多一次 `jq`）：只取
@@ -47,3 +49,4 @@ experience/library/{artifactSlug}/{stableSlug}.json
 - `find ~/.kne_document/experience | xargs cat`（或等价整库读取）
 - 一次性 Read / 粘贴多个完整 JSON
 - 无命中后反复扩大检索空转
+- 发版 / 升版本 / 开 PR / 升级依赖并发布 不要搜 `library/`（应搜 `process/`）
