@@ -1,15 +1,22 @@
 ---
-description: 动手前在 ~/.kne_document/experience 分层检索相似经验，省 token
+description: 动手前在 ~/.kne_document/experience/business|library 分层检索可复用经验，省 token
 alwaysApply: true
 ---
 
-# experience 相似问题检索（读取）
+# 可复用经验检索（读取）
 
-本规则独立于开发流程、问题解决总结写入与 KNE 文档搜索。只负责动手前**读取** `~/.kne_document/experience`。
+本规则独立于工作日志写入与经验提炼。只负责动手前**读取** `~/.kne_document/experience` 下的经验卡（`business` / `library`）。不扫 `worklog/`。
 
-开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续，不空转。写入规范见 `experience-summary-write`。
+开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续。写入/补充见 `experience-distill-write`。
 
-路径：`~/.kne_document/experience/{projectName}/{YYYY-MM-DD-HH-mm-ss}/{title}.json`
+## 路径
+
+根目录：`~/.kne_document/`
+
+```text
+experience/business/{projectName}/{stableSlug}.json
+experience/library/{artifactSlug}/{stableSlug}.json
+```
 
 ## 原则
 
@@ -17,24 +24,26 @@ alwaysApply: true
 
 ## 检索阶梯（必须按序）
 
-1. **抽词**：从当前需求抽 **1–3** 个实词（组件名 / 动作 / 目录名），勿用长句当 query。
-2. **同项目优先**：已知仓库名则先搜 `~/.kne_document/experience/<projectName>/`；无命中再扫其他项目（仍限候选数）。
-3. **文件名零解析**：末段文件名即 title。用 `find … -iname '*关键词*'` / `ls` 粗筛，**不读文件内容**。
-4. **浅内容**：对候选 `rg -n -i '关键词' --glob '*.json'`，**只看匹配行**；优先含 `"title"` / `"description"` / `"summary"` 的行。禁止把整文件输出进对话。
+1. **抽词**：从当前需求抽 **1–3** 个实词（组件名 / 包名 / 动作），勿用长句当 query。
+2. **定类别范围**：
+   - 偏组件/包用法 → 先搜 `experience/library/`（可再限 `artifactSlug` 子目录）
+   - 偏本仓业务流程 → 先搜 `experience/business/<projectName>/`
+   - 不确定 → 两类各窄搜，合计候选仍 ≤3
+3. **文件名零解析**：用 `find … -iname '*关键词*'` / `ls` 粗筛，**不读文件内容**。
+4. **浅内容**：对候选 `rg -n -i '关键词' --glob '*.json'`，**只看匹配行**；优先 `"title"` / `"problem"` / `"solution"` / `"keywords"`。
 5. **摘要投影**（每条最多一次 `jq`）：只取
-   - `title`, `description`, `score.overall`
-   - `finalSolution.summary`, `finalSolution.keyChanges`
-   - **默认不取** `proposals`、`requirement.detail`、`codeSnippets`
-6. **深读限额**：决定复用时，**仅对 1 条**再取 `finalSolution.codeSnippets`（或该文件全文）。
-7. **硬上限**：候选 ≤ **3**；`score.overall < 6` 默认丢弃（除非没有更高分命中）。
+   - `title`, `category`, `problem`, `solution`, `keywords`, `artifacts`, `rootCause`, `updatedAt`
+   - **默认不取** `keyCode`、`sourceWorklogs`、长 `donts`
+6. **深读限额**：决定复用时，**仅对 1 条**再取 `keyCode`（及必要时 `sourceWorklogs`）。
+7. **硬上限**：候选 ≤ **3**。
 
 ## 对用户输出
 
-最多 1–3 条：`title` + `overall` + 一句话（`description` 或 `finalSolution.summary`）+ 文件路径。命中且沿用时先复述摘要再动手。
+最多 1–3 条：`title` + `category` + 一句话（`problem`→`solution`）+ 相对子路径。命中且沿用时先复述摘要再动手。
 
 ## 禁止
 
+- 检索 `worklog/` 当作经验
 - `find ~/.kne_document/experience | xargs cat`（或等价整库读取）
 - 一次性 Read / 粘贴多个完整 JSON
-- 把历史 `proposals` 全列表贴进上下文「供参考」
 - 无命中后反复扩大检索空转

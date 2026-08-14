@@ -10,8 +10,9 @@
 cursor-setting/
 ├── rules/                 # 用户级 Cursor Rules（.mdc）
 │   ├── development-workflow.mdc
+│   ├── worklog-write.mdc
+│   ├── experience-distill-write.mdc
 │   ├── experience-similar-search.mdc
-│   ├── experience-summary-write.mdc
 │   ├── kne-document-search.mdc
 │   ├── no-restart-user-services.mdc
 │   └── responsive-utils-mobile.mdc
@@ -25,8 +26,9 @@ cursor-setting/
 | 文件 | 作用 | 生效范围 |
 |------|------|----------|
 | `development-workflow.mdc` | 改代码：干净工作区 → 建分支 → 开发 → 验收 → 升版本/提交 → Push/PR；结束后输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `kne-union/*` 的仓库 |
-| `experience-similar-search.mdc` | 动手前分层检索 `~/.kne_document/experience` | 全局 |
-| `experience-summary-write.mdc` | 收到 `DEVELOPMENT_COMPLETE`（或用户明确要求）后写入经验总结 JSON | 全局（靠信号门禁） |
+| `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志，并输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
+| `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡（business/library；先搜后补） | 全局（靠信号门禁） |
+| `experience-similar-search.mdc` | 动手前分层检索 `experience/business` 与 `experience/library` | 全局 |
 | `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：经 `@kne/npm-tools` 建索引再分层检索 | 涉及 KNE 文档时 |
 | `responsive-utils-mobile.mdc` | 移动端适配统一用 `@kne/responsive-utils` | 全局（KNE 前端） |
 | `no-restart-user-services.mdc` | 禁止擅自重启用户本地开发服务 | 全局 |
@@ -35,10 +37,13 @@ cursor-setting/
 
 ```text
 development-workflow（PR 成功）
-  → 输出 DEVELOPMENT_COMPLETE
-  → experience-summary-write 落盘
-       ~/.kne_document/experience/{project}/{timestamp}/{title}.json
+  → DEVELOPMENT_COMPLETE
+  → worklog-write → worklog/{project}/{timestamp}/{title}.json
+  → WORKLOG_WRITTEN
+  → experience-distill-write → experience/business|library/...（先搜后补）
 ```
+
+路径均相对 `~/.kne_document/`（禁止在 JSON/信号中存绝对路径）。
 
 ## 使用方法
 
@@ -57,6 +62,8 @@ cd cursor-setting
 # 仅同步本仓库维护的规则文件
 cp rules/*.mdc ~/.cursor/rules/
 ```
+
+同步后可删除本机已废弃的 `experience-summary-write.mdc`（若仍存在）。
 
 或指定单个文件：
 
@@ -99,7 +106,9 @@ alwaysApply: true
 | 路径 | 用途 |
 |------|------|
 | `~/.cursor/rules/` | Cursor 用户级 rules 生效目录 |
-| `~/.kne_document/experience/` | 问题解决经验 JSON（检索 + 总结写入） |
+| `~/.kne_document/worklog/` | 会话工作日志 |
+| `~/.kne_document/experience/business/` | 项目业务经验卡 |
+| `~/.kne_document/experience/library/` | 组件/库使用经验卡 |
 | `~/.kne_document_indexed/` | `@kne` / remote 文档切分索引（见 `kne-document-search`） |
 
 ## 与项目级规则的区别
