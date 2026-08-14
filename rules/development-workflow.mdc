@@ -1,5 +1,5 @@
 ---
-description: 仅 kne-union：开发交付流程；结束后发出 DEVELOPMENT_COMPLETE 信号供总结规则消费
+description: 仅 kne-union：开发交付流程；结束后发出 DEVELOPMENT_COMPLETE 供 worklog 规则消费
 alwaysApply: true
 ---
 
@@ -14,12 +14,13 @@ alwaysApply: true
 
 **非 kne-union 项目：完全忽略本规则**（不要强制干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。
 
-本规则只管开发交付，并在结束时**发出信号**。不在本规则内写总结 JSON。
+本规则只管开发交付，并在结束时**发出信号**。不在本规则内写 worklog / experience。
 
 独立规则：
 
 - 相似经验检索：`experience-similar-search`（读取）
-- 任务后总结：`experience-summary-write`（只消费下方信号）
+- 工作日志：`worklog-write`（消费下方信号）
+- 经验提炼：`experience-distill-write`（消费 `WORKLOG_WRITTEN`）
 - `@kne` / remote 文档：`kne-document-search`
 
 ---
@@ -69,8 +70,8 @@ version_bump: <如 0.1.57 → 0.1.58；无则 none>
 acceptance: <用户验收原话摘要>
 ```
 
-- 本规则到此结束；**不要**在本规则内写 `~/.kne_document/experience` 文件
-- 总结落盘由 `experience-summary-write` 在收到上述信号后执行
+- 本规则到此结束；**不要**在本规则内写 `~/.kne_document/worklog` 或 `experience`
+- 工作日志由 `worklog-write` 在收到上述信号后执行；经验由 `experience-distill-write` 在 `WORKLOG_WRITTEN` 后执行
 
 ## 禁止
 - 在非 kne-union 仓库套用本流程
@@ -78,4 +79,4 @@ acceptance: <用户验收原话摘要>
 - 未验收就升版本/commit/push/PR
 - 功能/修复 PR 不带 version bump
 - PR 未成功却输出 `DEVELOPMENT_COMPLETE`
-- 输出信号的同时自行写总结（应留给 `experience-summary-write`）
+- 输出信号的同时自行写 worklog / experience
