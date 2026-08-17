@@ -1,0 +1,187 @@
+---
+description: 仅 leapin-ai：先拷贝到 ~/.cursor_workplace 开发，验收提交后拷回原仓同名分支并 merge 到 linzp，输出 DEVELOPMENT_COMPLETE
+alwaysApply: true
+---
+
+# 开发流程（仅 leapin-ai）
+
+## 适用范围
+
+**仅当**当前仓库属于 [leapin-ai](https://github.com/leapin-ai) 时生效。判定任一即可：
+
+- `git remote -v` 含 `github.com/leapin-ai/`（或 `git@github.com:leapin-ai/`）
+- 用户明确说明正在 leapin-ai 仓库内开发
+
+**非 leapin-ai 项目：完全忽略本规则**（不要强制干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。
+
+与 kne-union 的 `development-workflow` 互斥：本规则不替代 kne-union 流程。
+
+本规则只管开发交付，并在结束时**发出信号**。不在本规则内写 worklog / experience。
+
+独立规则：
+
+- 相似经验检索：`experience-similar-search`（读取）
+- 工作日志：`worklog-write`（消费下方信号）
+- 经验提炼：`experience-distill-write`（消费 `WORKLOG_WRITTEN`）
+
+---
+
+只要需要修改代码，一律按下列流程执行。不需要「开始需求」等触发词。
+
+**核心约定：** 业务代码只在 `~/.cursor_workplace/{项目名}/{时间戳}/` 副本中修改；原仓（SOURCE）仅在提交阶段接收同名分支并合回 `linzp`。
+
+会话中记住两个路径：
+
+- `SOURCE_ROOT`：用户打开的原项目绝对路径
+- `WORKPLACE_ROOT`：本次副本绝对路径 `~/.cursor_workplace/<项目名>/<时间戳>/`
+
+---
+
+## 1. 检查原仓工作区
+
+在 **SOURCE_ROOT** 执行：
+
+- `git status`（及必要的 `git diff`）
+- 若存在未提交改动：提示用户并终止，不得继续复制或修改
+- 工作区干净后再进入下一步
+- 记录 `SOURCE_ROOT`、仓库名（`basename`，作 `{项目名}`）
+
+## 2. 拷贝到 ~/.cursor_workplace
+
+1. 时间戳：`YYYYMMDD-HHMMSS`（本地时区）
+2. 目标：`WORKPLACE_ROOT=$HOME/.cursor_workplace/<项目名>/<时间戳>/`
+3. `mkdir -p` 后完整拷贝（**必须含 `.git`**），**不要复制 `node_modules`**，拷完后用 symlink 指向原仓：
+
+```bash
+mkdir -p "$WORKPLACE_ROOT"
+rsync -a \
+  --exclude node_modules \
+  --exclude .next \
+  --exclude dist \
+  --exclude build \
+  --exclude coverage \
+  --exclude .turbo \
+  "$SOURCE_ROOT/" "$WORKPLACE_ROOT/"
+
+# node_modules：软链到原仓，避免重复拷贝与重复安装
+if [ -e "$SOURCE_ROOT/node_modules" ] || [ -L "$SOURCE_ROOT/node_modules" ]; then
+  ln -sfn "$SOURCE_ROOT/node_modules" "$WORKPLACE_ROOT/node_modules"
+fi
+```
+
+- 若仓库是 monorepo / 多包且存在多处 `node_modules`：对 SOURCE 内每一个 `node_modules` 目录，在 WORKPLACE 对应相对路径同样 `ln -sfn` 到 SOURCE 的绝对路径
+- **禁止**在副本里对已 symlink 的 `node_modules` 再执行 `npm/yarn/pnpm install`（会写回原仓依赖树）；仅当 SOURCE 本身没有 `node_modules`、且用户明确要求在副本安装时，才可在副本新建真实目录安装
+- 拷回原仓（第 7 步）时**不要**同步或覆盖 `node_modules`（跳过 symlink / 该路径）
+
+4. 立刻调用 `move_agent_to_root`，将工作区切到 `WORKPLACE_ROOT`（后续开发只在此路径）
+5. 汇报：`SOURCE_ROOT`、`WORKPLACE_ROOT`、`node_modules` 是否已 symlink
+
+## 3. 在副本中从 linzp 创建新分支
+
+在 **WORKPLACE_ROOT**：
+
+- `git fetch origin`（网络失败可继续用副本内已有引用，并说明）
+- 确保存在 `linzp`：
+  - 本地已有：以其为基线
+  - 仅有 `origin/linzp`：`git checkout -b linzp origin/linzp`
+  - 本地与远程都没有：从默认主干创建本地 `linzp`
+- 从 **linzp** 创建功能分支，命名：`cursor/<简短英文描述>`
+- 若平台要求分支后缀，按要求追加；重名则追加 -2、-3…
+- **不要**从默认主干直接拉功能分支（除非正在创建缺失的 `linzp` 本身）
+
+## 4. 开发（仅 WORKPLACE_ROOT）
+
+- 只改与需求相关的代码，保持最小改动
+- **禁止**在 `SOURCE_ROOT` 直接改业务代码（本阶段）
+- 能跑则跑相关测试/检查；失败则修复
+- 完成后停下等待用户验收，汇报必须包含：
+  1. 功能分支名、`WORKPLACE_ROOT`、改动摘要
+  2. **可直接复制执行的验证/启动命令**（用户要自己跑起来验收时必给；不得只写「请本地验证」这类空话）
+- 启动命令要求：
+  - 写明工作目录：优先 `cd "$WORKPLACE_ROOT"`（或写出绝对路径）；若必须在 SOURCE / 下游仓验证，写清对应路径与原因
+  - 按实际栈给出完整命令序列（如 `npm start` / `npm run dev` / `pnpm dev` / `yarn start`，或 README / `package.json` scripts 中的真实脚本名）
+  - 需要环境变量、端口、打开的 URL、示例请求时一并写出
+  - 若本次改动无需启动服务（纯库/纯配置）：给出等价验证命令（单测、`npm test`、构建命令等），并注明「无需起服务」
+  - 从仓库 `package.json` / README / 既有脚本推断；不确定时先读再写，禁止臆造不存在的 script
+- 未经明确要求，不得擅自在下游仓库安装、link 或启动服务做代验证
+
+## 5. 用户验收
+
+- 必须等用户明确表示通过/可以提交
+- 「差不多了」「先这样」「看看」等不算验收通过，须再确认
+- **触发词约定**：用户只说「提交」「可以提交」「验收通过并提交」等，即同时授权 **第 6–8 步**（副本提交 → 拷回原仓同名分支 → merge 回 linzp），**不要**停在中途等用户再说「合回 linzp」
+- 若用户反馈「起不来 / 命令不对」：先修正启动说明或修复代码，再重新进入等待验收；不得在未给出可运行命令的情况下催促验收
+
+## 6. 副本内升版本 + 提交
+
+用户验收通过并授权提交后（含仅说「提交」），在 **WORKPLACE_ROOT** 的功能分支上：
+
+1. 升级相关包 `package.json` 的 version（未指定则 patch +1）；有功能/修复改动必须升版本
+2. 并行 `git status`、`git diff`、`git log -1`
+3. 只 stage 本次相关文件；不提交 `.env`、密钥等
+4. HEREDOC commit：`feat`/`fix`: 简述 + 空行 + 原因
+5. 不 amend 已 push 的 commit
+6. **提交成功后立刻进入第 7 步**，不得以「先提交、稍后合回」结束回合
+
+## 7. 拷回原仓：同名分支 + 应用改动
+
+在 **SOURCE_ROOT**（可临时开 shell，cwd 指向原仓；若已 `move_agent_to_root` 到副本，用绝对路径操作 SOURCE）：
+
+1. 确认 SOURCE 工作区仍干净；不干净则停止并提示用户，**不要**强行覆盖
+2. `git fetch origin`（可选但推荐）
+3. 确保本地 `linzp` 存在（规则同第 3 步）
+4. 从 `linzp` 创建与副本**同名**的功能分支：`git checkout -b <与 WORKPLACE 相同的分支名> linzp`
+   - 若同名分支已存在：先确认是否可复用；冲突则停止并询问用户，不要擅自 `-f` 删除
+5. 将副本相对 `linzp` 的提交应用到原仓同名分支，优先顺序：
+   1. `git -C "$WORKPLACE_ROOT" format-patch linzp --stdout | git -C "$SOURCE_ROOT" am --3way`
+   2. 若 `am` 失败：用 `git -C "$WORKPLACE_ROOT" diff linzp...HEAD` 生成 patch，在 SOURCE 同名分支上 `git apply` / 手动落文件后，用**与副本相同的 commit message** 再 commit 一次
+6. 核对 SOURCE 同名分支与 WORKPLACE 的关键 diff 一致（至少 `git diff linzp...HEAD --stat` 对齐）
+7. **不要**默认 push 功能分支
+
+## 8. Merge 回原仓本地 linzp
+
+仍在 **SOURCE_ROOT**：
+
+1. `git checkout linzp`
+2. 将同名功能分支 merge 进本地 `linzp`（常规 merge；不 force push、不改 git config）
+3. 汇报：已合并的功能分支名、当前位于 SOURCE 的 `linzp`、`WORKPLACE_ROOT`、简要变更
+4. 「合到 linzp」不等于「发版 / 推远程」；push 或发版仅在用户明确说后执行
+5. 若用户明确说「只提交不合回 / 先别 merge」：可跳过本步，并在回复中说明已跳过
+6. 合并成功后可用 `move_agent_to_root` 切回 `SOURCE_ROOT`（可选，便于用户继续在原仓查看）
+
+## 9. 判定并输出「开发是否结束」信号
+
+原仓本地 `linzp` merge **成功**后，在回复中**单独输出**下列信号块（原文照抄结构，填真实值）。未到此步、merge 失败、或流程中止：**不要**输出该信号。
+
+```text
+DEVELOPMENT_COMPLETE
+project: <GitHub 仓库名，不含 owner>
+branch: <已合并的功能分支>
+merged_into: linzp
+pr_url: none
+pr_number: none
+version_bump: <如 0.1.57 → 0.1.58；无则 none>
+acceptance: <用户验收原话摘要>
+workplace: <WORKPLACE_ROOT>
+```
+
+- 本规则到此结束；**不要**在本规则内写 `~/.kne_document/worklog` 或 `experience`
+- 工作日志由 `worklog-write` 在收到上述信号后执行；经验由 `experience-distill-write` 在 `WORKLOG_WRITTEN` 后执行
+
+## 禁止
+
+- 在非 leapin-ai 仓库套用本流程
+- 原仓工作区不干净时继续拷贝或改代码
+- 跳过 workplace 拷贝，直接在 SOURCE 改业务代码
+- 复制 `node_modules` 实体目录，或对已 symlink 的 `node_modules` 在副本内执行 install
+- 拷回原仓时同步/覆盖 `node_modules`
+- 未验收就升版本/commit/merge/拷回
+- 等待验收时不给出具体启动/验证命令（或命令缺少工作目录 / 臆造 script）
+- 功能/修复改动不带 version bump（有 package.json 时）
+- 本地已有 `linzp` 却从默认主干直接拉功能分支
+- 用户已说「提交」却只在副本 commit、不拷回原仓或不合回 `linzp`（除非用户明确要求跳过）
+- merge 未成功却输出 `DEVELOPMENT_COMPLETE`
+- 输出信号的同时自行写 worklog / experience
+- 未经用户要求 push 远程或开 PR
+- 套用 kne-union 的 `development-workflow`（push/PR 到主干）替代本流程
+- 用副本目录覆盖 SOURCE 的 `.git`，或在 SOURCE 执行破坏性 git 命令清理历史
