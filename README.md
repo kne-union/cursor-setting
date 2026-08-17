@@ -26,8 +26,8 @@ cursor-setting/
 
 | 文件 | 作用 | 生效范围 |
 |------|------|----------|
-| `development-workflow.mdc` | 改代码：干净工作区 → 建分支 → 开发 → 验收 → 升版本/提交 → Push/PR；结束后输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `kne-union/*` 的仓库 |
-| `business-development-workflow.mdc` | 改代码：干净原仓 → 拷贝到 `~/.cursor_workplace/{项目}/{时间戳}` → 副本从个人基线分支（`git config user.name` 净化小写）拉分支开发 → 验收 → 副本提交 → 原仓同名分支拷回 → merge 本地个人基线；输出 `DEVELOPMENT_COMPLETE` | **非** kne-union 的业务仓库 |
+| `development-workflow.mdc` | 改代码：有 WIP 则 stash → 建分支 → 开发 → 验收 → 升版本/提交 → Push/PR → 还原 stash；结束后输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `kne-union/*` 的仓库 |
+| `business-development-workflow.mdc` | 改代码：原仓有 WIP 则 stash → 拷贝到 `~/.cursor_workplace/{项目}/{时间戳}` → 副本从个人基线分支（`git config user.name` 净化小写）拉分支开发 → 验收 → 副本提交 → 原仓同名分支拷回 → merge 本地个人基线 → 还原 stash；输出 `DEVELOPMENT_COMPLETE` | **非** kne-union 的业务仓库 |
 | `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志，并输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
 | `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡（价值门槛过滤；business/library/process；先搜后补） | 全局（靠信号门禁） |
 | `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
@@ -84,7 +84,7 @@ cp rules/development-workflow.mdc ~/.cursor/rules/
 
 ### 3. 新增 / 修改规则
 
-1. 工作区干净后从 `master` 拉分支：`cursor/<简短英文描述>`
+1. 有未提交改动则 `git stash push -u` 后再从 `master` 拉分支：`cursor/<简短英文描述>`
 2. 在 `rules/` 下新增或编辑 `.mdc`（YAML frontmatter + Markdown 正文）
 3. 本地看一眼描述与 `alwaysApply` / 适用范围是否正确
 4. 提交、开 PR；合并后按上一节同步本机

@@ -12,7 +12,7 @@ alwaysApply: true
 - `git remote -v` 含 `github.com/kne-union/`（或 `git@github.com:kne-union/`）
 - 用户明确说明正在 kne-union 仓库内开发
 
-**kne-union 项目：完全忽略本规则**（不要强制 workplace 拷贝、干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。
+**kne-union 项目：完全忽略本规则**（不要强制 workplace 拷贝、stash、建分支、验收门禁、升版本；也不发出开发结束信号）。
 
 与 kne-union 的 `development-workflow` 互斥：本规则不替代 kne-union 流程。
 
@@ -35,6 +35,7 @@ alwaysApply: true
 - `SOURCE_ROOT`：用户打开的原项目绝对路径
 - `WORKPLACE_ROOT`：本次副本绝对路径 `~/.cursor_workplace/<项目名>/<时间戳>/`
 - `PERSONAL_BRANCH`：个人基线分支名，由当前 git `user.name` 得到（见下方「个人基线分支」）
+- `ORIGINAL_BRANCH` / `STASHED`：原仓开始时的分支，以及是否做了 auto-stash
 
 ### 个人基线分支
 
@@ -48,14 +49,18 @@ alwaysApply: true
 
 ---
 
-## 1. 检查原仓工作区
+## 1. 检查原仓工作区（有未提交则 stash）
 
 在 **SOURCE_ROOT** 执行：
 
 - `git status`（及必要的 `git diff`）
-- 若存在未提交改动：提示用户并终止，不得继续复制或修改
-- 工作区干净后再进入下一步
-- 记录 `SOURCE_ROOT`、仓库名（`basename`，作 `{项目名}`）、`PERSONAL_BRANCH`
+- 记录 `ORIGINAL_BRANCH`（当前分支）、`STASHED=false`、`SOURCE_ROOT`、仓库名（`basename`，作 `{项目名}`）、`PERSONAL_BRANCH`
+- 若存在未提交改动（已暂存 / 未暂存 / 未跟踪且未被 ignore）：
+  1. `git stash push -u -m "cursor-workflow: auto-stash before <简短说明>"`
+  2. 设 `STASHED=true`，汇报已 stash，**不要**因此终止流程
+  3. stash 失败则停止并提示用户，不得丢改动、不得继续复制或修改
+- 工作区干净（或 stash 成功）后再进入下一步
+- **不要**用 `stash -a`（会带上 ignore，如 `node_modules`）
 
 ## 2. 拷贝到 ~/.cursor_workplace
 
@@ -85,7 +90,7 @@ fi
 - 拷回原仓（第 7 步）时**不要**同步或覆盖 `node_modules`（跳过 symlink / 该路径）
 
 4. 立刻调用 `move_agent_to_root`，将工作区切到 `WORKPLACE_ROOT`（后续开发只在此路径）
-5. 汇报：`SOURCE_ROOT`、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、`node_modules` 是否已 symlink
+5. 汇报：`SOURCE_ROOT`、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、`STASHED`、`node_modules` 是否已 symlink
 
 ## 3. 在副本中从个人基线创建新分支
 
@@ -106,7 +111,7 @@ fi
 - **禁止**在 `SOURCE_ROOT` 直接改业务代码（本阶段）
 - 能跑则跑相关测试/检查；失败则修复
 - 完成后停下等待用户验收，汇报必须包含：
-  1. 功能分支名、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、改动摘要
+  1. 功能分支名、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、改动摘要；若 `STASHED=true`，注明原仓 WIP 已 stash，提交完成后再还原
   2. **可直接复制执行的验证/启动命令**（用户要自己跑起来验收时必给；不得只写「请本地验证」这类空话）
 - 启动命令要求：
   - 写明工作目录：优先 `cd "$WORKPLACE_ROOT"`（或写出绝对路径）；若必须在 SOURCE / 下游仓验证，写清对应路径与原因
@@ -138,7 +143,7 @@ fi
 
 在 **SOURCE_ROOT**（可临时开 shell，cwd 指向原仓；若已 `move_agent_to_root` 到副本，用绝对路径操作 SOURCE）：
 
-1. 确认 SOURCE 工作区仍干净；不干净则停止并提示用户，**不要**强行覆盖
+1. 确认 SOURCE 工作区仍干净（第 1 步的 stash 应仍在；若期间又脏了：停止并提示，**不要**强行覆盖，也不要在此时 pop 第 1 步的 stash）
 2. `git fetch origin`（可选但推荐）
 3. 确保本地 `{PERSONAL_BRANCH}` 存在（规则同第 3 步）
 4. 从 `{PERSONAL_BRANCH}` 创建与副本**同名**的功能分支：`git checkout -b <与 WORKPLACE 相同的分支名> {PERSONAL_BRANCH}`
@@ -160,7 +165,18 @@ fi
 5. 若用户明确说「只提交不合回 / 先别 merge」：可跳过本步，并在回复中说明已跳过
 6. 合并成功后可用 `move_agent_to_root` 切回 `SOURCE_ROOT`（可选，便于用户继续在原仓查看）
 
-## 9. 判定并输出「开发是否结束」信号
+## 9. 还原 stash
+
+- 若 `STASHED=true`：在 **原仓 `{PERSONAL_BRANCH}` merge 成功之后**，或流程中止时，立刻在 **SOURCE_ROOT** 还原：
+  1. `git -C "$SOURCE_ROOT" checkout {ORIGINAL_BRANCH}`（已在该分支则跳过）
+  2. `git -C "$SOURCE_ROOT" stash pop`
+  3. 汇报：已在 SOURCE 的 `ORIGINAL_BRANCH` 还原先前未提交改动
+- pop 冲突：停止并说明，**不要** `stash drop`，留给用户处理
+- `STASHED=false`：跳过本步
+- 等待验收期间保持 stash，不要提前 pop（避免 WIP 混进副本或原仓功能分支）
+- **不要**在 WORKPLACE 里 pop 这笔 SOURCE 的 stash
+
+## 10. 判定并输出「开发是否结束」信号
 
 原仓本地 `{PERSONAL_BRANCH}` merge **成功**后，在回复中**单独输出**下列信号块（原文照抄结构，填真实值）。未到此步、merge 失败、或流程中止：**不要**输出该信号。
 
@@ -182,7 +198,10 @@ workplace: <WORKPLACE_ROOT>
 ## 禁止
 
 - 在 kne-union 仓库套用本流程（应走 `development-workflow`）
-- 原仓工作区不干净时继续拷贝或改代码
+- 原仓有未提交改动时跳过 stash 直接拷贝或改代码，或因有 WIP 就终止流程
+- stash 后流程结束或中止却不在 SOURCE 还原（除非 pop 冲突已说明）
+- pop 冲突后执行 `stash drop`
+- 用 `stash -a` 把 ignore 目录（如 `node_modules`）塞进 stash
 - 跳过 workplace 拷贝，直接在 SOURCE 改业务代码
 - 复制 `node_modules` 实体目录，或对已 symlink 的 `node_modules` 在副本内执行 install
 - 拷回原仓时同步/覆盖 `node_modules`
