@@ -100,13 +100,15 @@ rsync -a \
   --exclude .turbo \
   "$SOURCE_ROOT/" "$WORKPLACE_ROOT/"
 
-# node_modules：软链到原仓，避免重复拷贝与重复安装
-if [ -e "$SOURCE_ROOT/node_modules" ] || [ -L "$SOURCE_ROOT/node_modules" ]; then
-  ln -sfn "$SOURCE_ROOT/node_modules" "$WORKPLACE_ROOT/node_modules"
-fi
+# node_modules：软链 SOURCE 内所有「项目级」node_modules（含 server/ 等子包），排除嵌套在 node_modules 内的
+find "$SOURCE_ROOT" \( -type d -o -type l \) -name node_modules -not -path '*/node_modules/*' | while read -r src_nm; do
+  rel="${src_nm#$SOURCE_ROOT/}"
+  mkdir -p "$WORKPLACE_ROOT/$(dirname "$rel")"
+  ln -sfn "$src_nm" "$WORKPLACE_ROOT/$rel"
+done
 ```
 
-- 若仓库是 monorepo / 多包且存在多处 `node_modules`：对 SOURCE 内每一个 `node_modules` 目录，在 WORKPLACE 对应相对路径同样 `ln -sfn` 到 SOURCE 的绝对路径
+- **必须**用上述 `find … -not -path '*/node_modules/*'` 遍历并逐个 `ln -sfn`；不要只链根目录 `node_modules`（前后端分目录时 `server/node_modules` 等会缺失，导致 `nodemon` 等命令找不到）
 - **禁止**在副本里对已 symlink 的 `node_modules` 再执行 `npm/yarn/pnpm install`（会写回原仓依赖树）；仅当 SOURCE 本身没有 `node_modules`、且用户明确要求在副本安装时，才可在副本新建真实目录安装
 - 拷回原仓（第 7 步）时**不要**同步或覆盖 `node_modules`（跳过 symlink / 该路径）
 - 若 rsync 失败且本次已 stash：先在 SOURCE `stash pop` 再停止
@@ -137,8 +139,9 @@ fi
   1. 功能分支名、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、改动摘要
   2. **可直接复制执行的验证/启动命令**（用户要自己跑起来验收时必给；不得只写「请本地验证」这类空话）
 - 启动命令要求：
-  - 写明工作目录：优先 `cd "$WORKPLACE_ROOT"`（或写出绝对路径）；若必须在 SOURCE / 下游仓验证，写清对应路径与原因
-  - 按实际栈给出完整命令序列（如 `npm start` / `npm run dev` / `pnpm dev` / `yarn start`，或 README / `package.json` scripts 中的真实脚本名）
+  - **必须**写成单行 `cd "$WORKPLACE_ROOT" && <命令>`（或等价绝对路径一行）；禁止只写 `npm start` 而不带 `cd`
+  - 若必须在 SOURCE / 下游仓验证，写清对应路径与原因
+  - 按实际栈给出完整命令（如 `npm start` / `npm run dev` / `pnpm dev` / `yarn start`，或 README / `package.json` scripts 中的真实 script 名）
   - 需要环境变量、端口、打开的 URL、示例请求时一并写出
   - 若本次改动无需启动服务（纯库/纯配置）：给出等价验证命令（单测、`npm test`、构建命令等），并注明「无需起服务」
   - 从仓库 `package.json` / README / 既有脚本推断；不确定时先读再写，禁止臆造不存在的 script
@@ -148,7 +151,7 @@ fi
 
 - 必须等用户明确表示通过/可以提交
 - 「差不多了」「先这样」「看看」等不算验收通过，须再确认
-- **触发词约定**：用户只说「提交」「可以提交」「验收通过并提交」等，即同时授权 **第 6–8 步**（副本提交 → 拷回原仓同名分支 → merge 回 `{PERSONAL_BRANCH}`），**不要**停在中途等用户再说「合回个人分支」
+- **触发词约定**：用户只说「提交」「可以提交」「验收通过并提交」等，即同时授权 **第 6–9 步**（副本提交 → 拷回原仓同名分支 → merge 回 `{PERSONAL_BRANCH}` → 清理 workplace），**不要**停在中途等用户再说「合回个人分支」
 - 若用户反馈「起不来 / 命令不对」：先修正启动说明或修复代码，再重新进入等待验收；不得在未给出可运行命令的情况下催促验收
 
 ## 6. 副本内升版本 + 提交
@@ -191,9 +194,19 @@ fi
 4. 若用户明确说「只提交不合回 / 先别 merge」：可跳过 merge，但仍须做下面的还原
 5. **立刻还原**：`git checkout {WRAP_BRANCH}`，若第 7 步做了 stash 则 `git stash pop`；pop 冲突则停止、不要 drop
 6. 汇报：已合并的功能分支名、合入 `{PERSONAL_BRANCH}`、WIP 已还原到 `WRAP_BRANCH`、`WORKPLACE_ROOT`、简要变更
-7. 可用 `move_agent_to_root` 切回 `SOURCE_ROOT`（可选）
+7. merge 成功后进入第 9 步清理 workplace
 
-## 9. 判定并输出「开发是否结束」信号
+## 9. 清理 workplace（merge 成功后）
+
+merge 进 `{PERSONAL_BRANCH}` 且 WIP 已还原后：
+
+1. `move_agent_to_root` 切回 `SOURCE_ROOT`
+2. `rm -rf "$WORKPLACE_ROOT"` 删除本次副本目录（仅删本次时间戳目录，不删 `~/.cursor_workplace/<项目名>/` 父目录或其它会话副本）
+3. 汇报已清理的 `WORKPLACE_ROOT`
+
+merge 失败、用户中止、或仅 commit 未合回：**不要**清理 workplace。
+
+## 10. 判定并输出「开发是否结束」信号
 
 原仓本地 `{PERSONAL_BRANCH}` merge **成功**后，在回复中**单独输出**下列信号块（原文照抄结构，填真实值）。未到此步、merge 失败、或流程中止：**不要**输出该信号。
 
@@ -224,7 +237,9 @@ workplace: <WORKPLACE_ROOT>
 - 复制 `node_modules` 实体目录，或对已 symlink 的 `node_modules` 在副本内执行 install
 - 拷回原仓时同步/覆盖 `node_modules`
 - 未验收就升版本/commit/merge/拷回
-- 等待验收时不给出具体启动/验证命令（或命令缺少工作目录 / 臆造 script）
+- 等待验收时不给出具体启动/验证命令（或未写成 `cd "$WORKPLACE_ROOT" && …` 单行 / 臆造 script）
+- merge 成功后不清理 `$WORKPLACE_ROOT`、或不切回 `SOURCE_ROOT`
+- 只 symlink 根目录 `node_modules` 而漏掉 `server/node_modules` 等子包目录
 - 功能/修复改动不带 version bump（有 package.json 时）
 - 写死 `linzp`（或其它人名）作为基线分支，而不用当前 `git config user.name` 净化小写结果
 - 本地已有 `{PERSONAL_BRANCH}` 却从默认主干直接拉功能分支
