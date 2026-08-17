@@ -1,5 +1,5 @@
 ---
-description: 收到 WORKLOG_WRITTEN 后提炼可复用经验；分 business/library/process；先搜后补，单方面一卡
+description: 收到 WORKLOG_WRITTEN 后提炼可复用经验；价值门槛过滤；分 business/library/process；先搜后补
 alwaysApply: true
 ---
 
@@ -35,20 +35,56 @@ alwaysApply: true
   - 升依赖、升版本、开 PR、合并触发 CI 发 npm 等 **交付/发布流程** → `process`
 - **禁止**把「升级某依赖并发布」写成 `library`（哪怕依赖是某个组件）；`library` 不写发布步骤
 
+## 价值判断（写入前必做）
+
+经验卡的唯一目的：**让未来会话少踩坑、少重复摸索**。每个拟提炼方面先过门槛；**不达标则不建、不更**。
+
+### 四项价值信号
+
+| 信号 | 含义 |
+|------|------|
+| **可迁移** | 换会话 / 换相近需求仍用得上（非本次 PR 号、临时路径、一次性文案） |
+| **非显然** | 不是官方文档直抄、不是已有 alwaysApply 规则复述、不是通用常识 |
+| **可行动** | 能改下次行为：写得出清晰 problem→solution（最好有 symptoms / donts） |
+| **有判别力** | 能区分错法与对法，不是「本次做了什么」流水账 |
+
+### 硬门槛
+
+- **新建**：必须 **可迁移**，且至少再满足 **非显然** 或 **有判别力**；并能用一句话写出 problem→solution
+- **更新已有卡**：本 worklog 须有 **实质增量** 之一——新 `symptom` / 新 `dont` / 更准 `rootCause` / 新 `keyCode` / 纠正错误 `solution`。仅「又发生一次同样的事」→ **不更新**（也不为了 append `sourceWorklogs` 而改文件）
+- **整条 worklog** 各方面均不达标 → 0 条，用 `skipped` 说明即可
+
+### 默认 skip（低价值）
+
+- 会话 changelog、升版本流水、验收原话 / 打分 / 方案演进复述
+- 复述已有 rules（如 development-workflow 步骤本身）
+- 纯文档补全且无决策点（例：「补了 README」）
+- 仅适用于单一 ticket 的配置值 / 文案 / 临时代码路径
+- 与已有卡同方面且无实质增量
+
+### 对照
+
+| skip | 写 |
+|------|-----|
+| 「本次把 showLength 改成了 0」 | 「窄操作区 ButtonGroup 默认露出按钮会裁切 → `showLength={0}`」 |
+| 「补了 cursor-setting README」 | （通常 skip；除非提炼出易错同步步骤） |
+| 「按流程开了 PR」 | 「依赖升级发布应归 process 而非 library」 |
+
 ## 提炼原则
 
-- 一条 worklog → **1–N** 条经验；**每条只阐述一个方面**
+- 一条 worklog → **0–N** 条经验（可为 0）；**每条只阐述一个方面**
 - 不同 artifacts / 根因 / 互不依赖修复点 → 分卡；同一方面合并
-- 纯文档/无技术点 → 0 条并说明跳过
 - **不**写入方案演进、打分、验收原话
+- 价值不够 → skip，宁缺毋滥
 
-## 每个方面的流程（先搜后写）
+## 每个方面的流程（先判价值，再搜后写）
 
-1. 判定 `category` 与 1–3 个检索词
-2. 在 `~/.kne_document/experience/` 下检索已有卡（阶梯同 `experience-similar-search`）：同 `category`；`business` 限同项目；`library` 优先同 `artifactSlug`；`process` 优先同 `topicSlug`；候选 ≤3
-3. **有合适命中（同一方面）→ 更新该文件**：合并 `keywords`/`symptoms`/`donts`；必要时修订 `problem`/`solution`/`rootCause`；追加不重复 `keyCode`（合计建议 ≤5 段）；`sourceWorklogs` append 本日志（同 path 去重）；更新 `updatedAt`
-4. **无命中 → 新建**稳定路径文件；填 `writtenAt` 与 `updatedAt`
-5. 回复每行：`created|updated` + 相对子路径
+1. 从 worklog 拆方面；对每方面做 **价值判断**；不达标 → `skipped` + 一句原因，进入下一方面
+2. 判定 `category` 与 1–3 个检索词
+3. 在 `~/.kne_document/experience/` 下检索已有卡（阶梯同 `experience-similar-search`）：同 `category`；`business` 限同项目；`library` 优先同 `artifactSlug`；`process` 优先同 `topicSlug`；候选 ≤3
+4. **有合适命中（同一方面）**：再确认有实质增量 → 更新该文件（合并 `keywords`/`symptoms`/`donts`；必要时修订 `problem`/`solution`/`rootCause`；追加不重复 `keyCode`，合计建议 ≤5 段；`sourceWorklogs` append 本日志且同 path 去重；更新 `updatedAt`）。无实质增量 → `skipped`（无实质增量）
+5. **无命中且过新建门槛 → 新建**稳定路径文件；填 `writtenAt` 与 `updatedAt`
+6. 回复每行：`created|updated|skipped` + 相对子路径或方面简述（skipped 须带原因）
 
 ## JSON（schemaVersion: 1）
 
@@ -119,9 +155,11 @@ alwaysApply: true
 ## 禁止
 
 - 无 `WORKLOG_WRITTEN` 且无用户点名 worklog 时写入
+- 价值不达标仍新建或更新
+- 无实质增量仅为 append `sourceWorklogs` 而改文件
 - 把整次会话揉进一张卡
 - 无关方面硬并进已有卡
-- 每次有日志就盲目新建（须先搜）
+- 每次有日志就盲目新建（须先搜、须过价值门槛）
 - path 使用绝对路径
 - 把经验文件写进业务仓库
 - 把发版 / PR / 升版本 / 升级依赖并发布 写成 `library`

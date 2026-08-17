@@ -10,6 +10,7 @@
 cursor-setting/
 ├── rules/                 # 用户级 Cursor Rules（.mdc）
 │   ├── development-workflow.mdc
+│   ├── leapin-ai-development-workflow.mdc
 │   ├── worklog-write.mdc
 │   ├── experience-distill-write.mdc
 │   ├── experience-similar-search.mdc
@@ -26,24 +27,26 @@ cursor-setting/
 | 文件 | 作用 | 生效范围 |
 |------|------|----------|
 | `development-workflow.mdc` | 改代码：干净工作区 → 建分支 → 开发 → 验收 → 升版本/提交 → Push/PR；结束后输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `kne-union/*` 的仓库 |
+| `leapin-ai-development-workflow.mdc` | 改代码：干净原仓 → 拷贝到 `~/.cursor_workplace/{项目}/{时间戳}` → 副本从 linzp 拉分支开发 → 验收 → 副本提交 → 原仓同名分支拷回 → merge 本地 linzp；输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `leapin-ai/*` 的仓库 |
 | `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志，并输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
-| `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡（business/library/process；先搜后补） | 全局（靠信号门禁） |
+| `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡（价值门槛过滤；business/library/process；先搜后补） | 全局（靠信号门禁） |
 | `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
 | `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：经 `@kne/npm-tools` 建索引再分层检索 | 涉及 KNE 文档时 |
 | `responsive-utils-mobile.mdc` | 移动端适配统一用 `@kne/responsive-utils` | 全局（KNE 前端） |
 | `no-restart-user-services.mdc` | 禁止擅自重启用户本地开发服务 | 全局 |
 
-信号链（kne-union 开发收尾）：
+信号链（kne-union / leapin-ai 开发收尾）：
 
 ```text
 development-workflow（PR 成功）
+  或 leapin-ai-development-workflow（原仓 linzp merge 成功）
   → DEVELOPMENT_COMPLETE
   → worklog-write → worklog/{project}/{timestamp}/{title}.json
   → WORKLOG_WRITTEN
-  → experience-distill-write → experience/business|library|process/...（先搜后补）
+  → experience-distill-write → experience/business|library|process/...（价值门槛 → 先搜后补；低价值 skipped）
 ```
 
-路径均相对 `~/.kne_document/`（禁止在 JSON/信号中存绝对路径）。
+路径均相对 `~/.kne_document/`（禁止在 JSON/信号中存绝对路径）。leapin-ai 的 workplace 副本在 `~/.cursor_workplace/`，不进本仓库。
 
 ## 使用方法
 
@@ -106,6 +109,7 @@ alwaysApply: true
 | 路径 | 用途 |
 |------|------|
 | `~/.cursor/rules/` | Cursor 用户级 rules 生效目录 |
+| `~/.cursor_workplace/{项目}/{时间戳}/` | leapin-ai 开发用项目副本（见 `leapin-ai-development-workflow`） |
 | `~/.kne_document/worklog/` | 会话工作日志 |
 | `~/.kne_document/experience/business/` | 项目业务经验卡 |
 | `~/.kne_document/experience/library/` | 组件/库用法与场景经验卡 |
