@@ -100,15 +100,22 @@ rsync -a \
   --exclude .turbo \
   "$SOURCE_ROOT/" "$WORKPLACE_ROOT/"
 
-# node_modules：软链 SOURCE 内所有「项目级」node_modules（含 server/ 等子包），排除嵌套在 node_modules 内的
+# 只软链「项目级」node_modules（根目录、server/ 等），不要链嵌套在 node_modules 里面的
 find "$SOURCE_ROOT" \( -type d -o -type l \) -name node_modules -not -path '*/node_modules/*' | while read -r src_nm; do
   rel="${src_nm#$SOURCE_ROOT/}"
-  mkdir -p "$WORKPLACE_ROOT/$(dirname "$rel")"
-  ln -sfn "$src_nm" "$WORKPLACE_ROOT/$rel"
+  dest="$WORKPLACE_ROOT/$rel"
+  mkdir -p "$(dirname "$dest")"
+  # 目标若已是目录，ln -sfn 会在其内再套一层，污染 SOURCE（ENOTDIR）
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    rm -rf "$dest"
+  fi
+  ln -sfn "$src_nm" "$dest"
 done
 ```
 
-- **必须**用上述 `find … -not -path '*/node_modules/*'` 遍历并逐个 `ln -sfn`；不要只链根目录 `node_modules`（前后端分目录时 `server/node_modules` 等会缺失，导致 `nodemon` 等命令找不到）
+- **必须**用上述 `find … -not -path '*/node_modules/*'` 遍历项目级 `node_modules` 再 `ln -sfn`；不要只链根目录（会漏 `server/node_modules`，`nodemon` 找不到）
+- **只链这一层**：禁止对 `node_modules` 内部的嵌套 `node_modules` 做软链
+- **软链前若目标已存在，先 `rm -rf` 再 `ln -sfn`**：禁止对已存在的真实目录直接 `ln -sfn`（会变成 `dest/node_modules`，写回 SOURCE，npm 报 ENOTDIR）
 - **禁止**在副本里对已 symlink 的 `node_modules` 再执行 `npm/yarn/pnpm install`（会写回原仓依赖树）；仅当 SOURCE 本身没有 `node_modules`、且用户明确要求在副本安装时，才可在副本新建真实目录安装
 - 拷回原仓（第 7 步）时**不要**同步或覆盖 `node_modules`（跳过 symlink / 该路径）
 - 若 rsync 失败且本次已 stash：先在 SOURCE `stash pop` 再停止
@@ -198,11 +205,12 @@ done
 
 ## 9. 清理 workplace（merge 成功后）
 
-merge 进 `{PERSONAL_BRANCH}` 且 WIP 已还原后：
+merge 进 `{PERSONAL_BRANCH}` 且 WIP 已还原后**必须**清理本次副本（不要把 workplace 留到下次会话）：
 
 1. `move_agent_to_root` 切回 `SOURCE_ROOT`
-2. `rm -rf "$WORKPLACE_ROOT"` 删除本次副本目录（仅删本次时间戳目录，不删 `~/.cursor_workplace/<项目名>/` 父目录或其它会话副本）
-3. 汇报已清理的 `WORKPLACE_ROOT`
+2. 若副本内仍有你启动的 dev server 在跑：先说明端口/PID，**不要**自行 kill；等用户停掉后再删，或用户明确要求清端口后再 `rm -rf`
+3. `rm -rf "$WORKPLACE_ROOT"` 删除本次副本目录（仅删本次时间戳目录，不删 `~/.cursor_workplace/<项目名>/` 父目录或其它会话副本）
+4. 汇报已清理的 `WORKPLACE_ROOT`
 
 merge 失败、用户中止、或仅 commit 未合回：**不要**清理 workplace。
 
@@ -235,6 +243,7 @@ workplace: <WORKPLACE_ROOT>
 - 用 `stash -a` 把 ignore 目录（如 `node_modules`）塞进 stash
 - 跳过 workplace 拷贝，直接在 SOURCE 改业务代码
 - 复制 `node_modules` 实体目录，或对已 symlink 的 `node_modules` 在副本内执行 install
+- 对嵌套在 `node_modules` 内的路径做 `ln -sfn`，或对已存在的真实目录直接 `ln -sfn`（会在 SOURCE 造出 `pkg/node_modules/node_modules`）
 - 拷回原仓时同步/覆盖 `node_modules`
 - 未验收就升版本/commit/merge/拷回
 - 等待验收时不给出具体启动/验证命令（或未写成 `cd "$WORKPLACE_ROOT" && …` 单行 / 臆造 script）
