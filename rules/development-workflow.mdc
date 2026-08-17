@@ -12,7 +12,7 @@ alwaysApply: true
 - `git remote -v` 含 `github.com/kne-union/`（或 `git@github.com:kne-union/`）
 - 用户明确说明正在 kne-union 仓库内开发
 
-**非 kne-union 项目：完全忽略本规则**（不要强制干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。
+**非 kne-union 项目：完全忽略本规则**（不要强制干净工作区、建分支、验收门禁、升版本；也不发出开发结束信号）。业务仓走 `business-development-workflow`。
 
 本规则只管开发交付，并在结束时**发出信号**。不在本规则内写 worklog / experience。
 
