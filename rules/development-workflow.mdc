@@ -36,6 +36,7 @@ alwaysApply: true
   3. stash 失败则停止并提示用户，不得丢改动、不得继续改代码
 - 工作区干净（或 stash 成功）后再进入下一步
 - **不要**用 `stash -a`（会带上 ignore，如 `node_modules`）
+- 本规则在**同一仓库目录**开发，不能「stash → 复制到另一目录 → 立刻 pop」：若建分支后立刻 pop，WIP 会随工作区进功能分支。因此 stash **保持到 PR 成功（或流程中止）再还原**
 ## 2. 从主分支创建新分支
 - git fetch origin
 - 确定主分支（main / master，或仓库约定主干）
