@@ -232,6 +232,7 @@ workplace: <WORKPLACE_ROOT>
 
 - 本规则到此结束；**不要**在本规则内写 `~/.kne_document/worklog` 或 `experience`
 - 工作日志由 `worklog-write` 在收到上述信号后执行；经验由 `experience-distill-write` 在 `WORKLOG_WRITTEN` 后执行
+- **强制收尾**：原仓本地 merge 成功后，**当前需求即视为结束**；但 agent 仍必须把后续记录步骤自动跑完。也就是说，发出 `DEVELOPMENT_COMPLETE` 后，必须继续让 `worklog-write` 落盘并输出 `WORKLOG_WRITTEN`，随后继续让 `experience-distill-write` 处理完成（可为 `skipped`）。这两个后续步骤属于需求结束后的自动收尾，**不要**因为用户紧接着问了新问题就跳过记录。
 
 ## 禁止
 
