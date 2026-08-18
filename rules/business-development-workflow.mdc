@@ -128,11 +128,11 @@ done
 
 在 **WORKPLACE_ROOT**：
 
-- `git fetch origin`（网络失败可继续用副本内已有引用，并说明）
+- **不要** `git fetch origin`（建分支只用本地已有引用，不拉远程）
 - 确保存在 `{PERSONAL_BRANCH}`：
   - 本地已有：以其为基线
-  - 仅有 `origin/{PERSONAL_BRANCH}`：`git checkout -b {PERSONAL_BRANCH} origin/{PERSONAL_BRANCH}`
-  - 本地与远程都没有：从默认主干创建本地 `{PERSONAL_BRANCH}`
+  - 本地没有、但已有 `origin/{PERSONAL_BRANCH}` 引用：`git checkout -b {PERSONAL_BRANCH} origin/{PERSONAL_BRANCH}`
+  - 本地与 `origin/{PERSONAL_BRANCH}` 都没有：从默认主干创建本地 `{PERSONAL_BRANCH}`
 - 从 **`{PERSONAL_BRANCH}`** 创建功能分支，命名：`cursor/<简短英文描述>`
 - 若平台要求分支后缀，按要求追加；重名则追加 -2、-3…
 - **不要**从默认主干直接拉功能分支（除非正在创建缺失的 `{PERSONAL_BRANCH}` 本身）
@@ -180,8 +180,8 @@ done
 
 1. 记下 `WRAP_BRANCH`（此时 SOURCE 当前分支，通常即 `ORIGINAL_BRANCH`）
 2. 若 SOURCE 有未提交：`git stash push -u`（失败则停，不要覆盖、不要 drop 已有 stash）
-3. `git fetch origin`（可选但推荐）
-4. 确保本地 `{PERSONAL_BRANCH}` 存在（规则同第 3 步）
+3. **不要** `git fetch origin`（拷回与 merge 只用本地 `{PERSONAL_BRANCH}`，不拉远程）
+4. 确保本地 `{PERSONAL_BRANCH}` 存在（优先本地已有；不要为合回去 fetch。仅当本地没有、但已有 `origin/{PERSONAL_BRANCH}` 引用时，才按第 3 步从该引用建本地分支）
 5. 从 `{PERSONAL_BRANCH}` 创建与副本**同名**的功能分支：`git checkout -b <与 WORKPLACE 相同的分支名> {PERSONAL_BRANCH}`
    - 若同名分支已存在：先确认是否可复用；冲突则停止并询问用户，不要擅自 `-f` 删除
 6. 将副本相对 `{PERSONAL_BRANCH}` 的提交应用到原仓同名分支，优先顺序：
@@ -196,7 +196,7 @@ done
 仍在 **SOURCE_ROOT**（此时工作区应仍是第 7 步 stash 后的干净态，**尚未 pop**）：
 
 1. `git checkout {PERSONAL_BRANCH}`
-2. 将同名功能分支 merge 进本地 `{PERSONAL_BRANCH}`（常规 merge；不 force push、不改 git config）
+2. 将同名功能分支 merge 进本地 `{PERSONAL_BRANCH}`（常规 merge；不 fetch、不 force push、不改 git config）
 3. 「合到个人基线」不等于「发版 / 推远程」；push 或发版仅在用户明确说后执行
 4. 若用户明确说「只提交不合回 / 先别 merge」：可跳过 merge，但仍须做下面的还原
 5. **立刻还原**：`git checkout {WRAP_BRANCH}`，若第 7 步做了 stash 则 `git stash pop`；pop 冲突则停止、不要 drop
@@ -232,6 +232,7 @@ workplace: <WORKPLACE_ROOT>
 
 - 本规则到此结束；**不要**在本规则内写 `~/.kne_document/worklog` 或 `experience`
 - 工作日志由 `worklog-write` 在收到上述信号后执行；经验由 `experience-distill-write` 在 `WORKLOG_WRITTEN` 后执行
+- **强制收尾**：原仓本地 merge 成功后，**当前需求即视为结束**；但 agent 仍必须把后续记录步骤自动跑完。也就是说，发出 `DEVELOPMENT_COMPLETE` 后，必须继续让 `worklog-write` 落盘并输出 `WORKLOG_WRITTEN`，随后继续让 `experience-distill-write` 处理完成（可为 `skipped`）。这两个后续步骤属于需求结束后的自动收尾，**不要**因为用户紧接着问了新问题就跳过记录。
 
 ## 禁止
 
@@ -255,6 +256,7 @@ workplace: <WORKPLACE_ROOT>
 - 用户已说「提交」却只在副本 commit、不拷回原仓或不合回 `{PERSONAL_BRANCH}`（除非用户明确要求跳过）
 - merge 未成功却输出 `DEVELOPMENT_COMPLETE`
 - 输出信号的同时自行写 worklog / experience
+- 流程中执行 `git fetch origin`（建分支与合回只用本地 `{PERSONAL_BRANCH}` 及已有引用）
 - 未经用户要求 push 远程或开 PR
 - 套用 kne-union 的 `development-workflow`（push/PR 到主干）替代本流程
 - 用副本目录覆盖 SOURCE 的 `.git`，或在 SOURCE 执行破坏性 git 命令清理历史

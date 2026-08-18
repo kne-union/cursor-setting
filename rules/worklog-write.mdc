@@ -16,6 +16,12 @@ alwaysApply: true
 
 未收到信号 → **不执行**。
 
+## 执行优先级
+
+- 一旦命中门禁，`worklog-write` 属于**需求结束后的强制收尾步骤**：应在当前开发闭环中**立即执行**，不要等用户下次提醒。
+- 即使用户在 `DEVELOPMENT_COMPLETE` 后立刻追问别的问题，也应先补完本规则，再切换话题。
+- 若上一条回复已经发出 `DEVELOPMENT_COMPLETE`，但当前上下文里还没有 `WORKLOG_WRITTEN`，应优先视为漏执行并立刻补写，而不是假设它会自动发生。
+
 ## 路径
 
 根目录：`~/.kne_document/`
