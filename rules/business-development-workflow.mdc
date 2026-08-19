@@ -5,6 +5,12 @@ alwaysApply: true
 
 # 开发流程（业务项目）
 
+> **⛔ 拦截器（每次改代码前必读）**
+> 准备调用 StrReplace / Write 修改业务文件？**停下，先自问：**
+> 1. 当前 cwd 是否在 `~/.cursor_workplace/` 下？→ **否则禁止改文件**
+> 2. 是否已完成"拷贝到 workplace → 建分支"？→ **否则先走步骤 1-3**
+> 3. 任务再小（哪怕一行）也不例外。直接改 SOURCE = 违规。
+
 ## 适用范围
 
 **仅当**当前仓库**不属于** [kne-union](https://github.com/kne-union) 时生效。判定 kne-union 任一即可（命中则**忽略本规则**，走 `development-workflow`）：
