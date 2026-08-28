@@ -7,7 +7,7 @@ alwaysApply: true
 
 > **⛔ 拦截器（每次改代码前必读）**
 > 准备调用 StrReplace / Write 修改业务文件？**停下，先自问：**
-> 1. 当前 cwd 是否在 `~/.cursor_workplace/` 下？→ **否则禁止改文件**
+> 1. 本次改动的**文件路径**是否在 `WORKPLACE_ROOT` 下？→ **否则禁止改文件**
 > 2. 是否已完成"拷贝到 workplace → 建分支"？→ **否则先走步骤 1-3**
 > 3. 任务再小（哪怕一行）也不例外。直接改 SOURCE = 违规。
 
@@ -34,7 +34,14 @@ alwaysApply: true
 
 只要需要修改代码，一律按下列流程执行。不需要「开始需求」等触发词。
 
-**核心约定：** 业务代码只在 `~/.cursor_workplace/{项目名}/{时间戳}/` 副本中修改；原仓（SOURCE）仅在提交阶段接收同名分支并合回个人基线分支。
+**核心约定：** 业务代码只在 `~/.cursor_workplace/{项目名}/{时间戳}/` 副本中修改；原仓（SOURCE）仅在提交阶段接收同名分支并合回个人基线分支；**merge 并清理 workplace 后须回到 SOURCE_ROOT 继续**（见下方「禁止 fetch」——回到原仓正常，**不要**为此调用会 fetch 的工具）。
+
+### 禁止 fetch（切回 SOURCE 正常，勿用 move_agent_to_root）
+
+- **禁止**调用 `move_agent_to_root`、`move_agent_to_cloned_root`（**内置会 `git fetch origin`**）
+- **禁止**执行 `git fetch` / `git pull`（除非用户明确要求）
+- **merge 清理 workplace 后须回到 SOURCE_ROOT 继续**（正常收尾）；用 `SOURCE_ROOT` 绝对路径操作即可，**不要**为切回而调用上述 MCP 工具
+- 开发阶段在 **WORKPLACE_ROOT**、拷回/merge/收尾在 **SOURCE_ROOT**；Shell 用 `cd` / `git -C`，文件读写用绝对路径
 
 会话中记住：
 
@@ -127,8 +134,7 @@ done
 - 若 rsync 失败且本次已 stash：先在 SOURCE `stash pop` 再停止
 
 5. 拷贝结束后：若本次 stash 了，立刻在 SOURCE 的 `ORIGINAL_BRANCH` 上 `stash pop`（原仓 WIP 复原；副本保持刚才拷到的干净提交态）
-6. 立刻调用 `move_agent_to_root`，将工作区切到 `WORKPLACE_ROOT`（后续开发只在此路径）
-7. 汇报：`SOURCE_ROOT`、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、拷出时是否 stash/已还原、`node_modules` 是否已 symlink
+6. 汇报：`SOURCE_ROOT`、`WORKPLACE_ROOT`、`PERSONAL_BRANCH`、拷出时是否 stash/已还原、`node_modules` 是否已 symlink；**后续所有开发命令与文件读写一律指向 `WORKPLACE_ROOT` 绝对路径**（禁止 `move_agent_to_root`）
 
 ## 3. 在副本中从个人基线创建新分支
 
@@ -180,7 +186,7 @@ done
 
 ## 7. 拷回原仓：同名分支 + 应用改动
 
-在 **SOURCE_ROOT**（可临时开 shell，cwd 指向原仓；若已 `move_agent_to_root` 到副本，用绝对路径操作 SOURCE）。
+在 **SOURCE_ROOT**（Shell 用 `git -C "$SOURCE_ROOT"` 或 `cd "$SOURCE_ROOT"`；**禁止** `move_agent_to_root`）。
 
 按「复制包装」：**有 WIP 则先 stash，再拷回（建分支 / `am` / merge），完成立刻还原**。不要因 SOURCE 不干净而终止。
 
@@ -213,10 +219,10 @@ done
 
 merge 进 `{PERSONAL_BRANCH}` 且 WIP 已还原后**必须**清理本次副本（不要把 workplace 留到下次会话）：
 
-1. `move_agent_to_root` 切回 `SOURCE_ROOT`
-2. 若副本内仍有你启动的 dev server 在跑：先说明端口/PID，**不要**自行 kill；等用户停掉后再删，或用户明确要求清端口后再 `rm -rf`
-3. `rm -rf "$WORKPLACE_ROOT"` 删除本次副本目录（仅删本次时间戳目录，不删 `~/.cursor_workplace/<项目名>/` 父目录或其它会话副本）
-4. 汇报已清理的 `WORKPLACE_ROOT`
+1. 若副本内仍有 dev server 在跑：先说明端口/PID，**不要**自行 kill；等用户停掉后再删，或用户明确要求清端口后再 `rm -rf`
+2. `rm -rf "$WORKPLACE_ROOT"` 删除本次副本目录（仅删本次时间戳目录，不删 `~/.cursor_workplace/<项目名>/` 父目录或其它会话副本）
+3. **收尾后在 SOURCE_ROOT 继续**（后续读写、`git -C` 均指向 SOURCE_ROOT；**禁止** `move_agent_to_root` / `move_agent_to_cloned_root`）
+4. 汇报已清理的 `WORKPLACE_ROOT` 与 `SOURCE_ROOT`
 
 merge 失败、用户中止、或仅 commit 未合回：**不要**清理 workplace。
 
@@ -254,7 +260,8 @@ workplace: <WORKPLACE_ROOT>
 - 拷回原仓时同步/覆盖 `node_modules`
 - 未验收就升版本/commit/merge/拷回
 - 等待验收时不给出具体启动/验证命令（或未写成 `cd "$WORKPLACE_ROOT" && …` 单行 / 臆造 script）
-- merge 成功后不清理 `$WORKPLACE_ROOT`、或不切回 `SOURCE_ROOT`
+- merge 成功后不清理 `$WORKPLACE_ROOT`、或不回到 **SOURCE_ROOT** 继续
+- 调用 `move_agent_to_root` / `move_agent_to_cloned_root`（会触发 fetch；**不等于**禁止 merge 后回到 SOURCE）
 - 只 symlink 根目录 `node_modules` 而漏掉 `server/node_modules` 等子包目录
 - 功能/修复改动不带 version bump（有 package.json 时）
 - 写死 `linzp`（或其它人名）作为基线分支，而不用当前 `git config user.name` 净化小写结果
