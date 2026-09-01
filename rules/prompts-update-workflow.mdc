@@ -1,0 +1,71 @@
+---
+description: 更新 prompts 须先在当前项目本地草稿让用户确认；拒绝则还原，同意再改源包并 PR 发版
+alwaysApply: true
+---
+
+# Prompts 更新流程
+
+与 `project-prompts-compliance`（**读取** prompts）配合：本规则管 **写入 / 修订** prompts 内容时的交付顺序。**禁止**跳过本地确认直接改 npm 源包仓库。
+
+## 何时触发
+
+- 任务暴露出 prompts 缺项、过时或与实现不一致，需要**补充或修订** prompt
+- 用户明确说「更新 prompts / 改提示词 / 写到 prompts-frontend-libs」等
+- 会话中刚总结出可沉淀的规范，且应进入某份 `@kne/prompts-*` 文档
+
+未触发时：**不要**主动改源包仓库，也**不要**把自拟规范写进当前业务仓并提交。
+
+## 源包与本地路径
+
+`prompts.json` 记录已部署的 npm 包及版本；`npx @kne/npm-tools deployPrompts <type>` 将 md 落到 **`prompts/{包目录名}/`**（通常 **gitignore**，不入业务仓）。
+
+| deployPrompts type | npm 包 | 源仓库（kne-union） | 源仓内路径 |
+|--------------------|--------|---------------------|------------|
+| `frontend-libs` | `@kne/prompts-frontend-libs` | `prompts-frontend-libs` | `prompts/*.md` |
+| `frontend-remote-components` | `@kne/prompts-remote-components` | `prompts-remote-components` | `prompts/*.md` |
+| `node-libs` | `@kne/prompts-node-libs` | `prompts-node-libs` | `prompts/*.md` |
+| `fastify-libs` | `@kne/prompts-fastify-libs` | `prompts-fastify-libs` | `prompts/*.md` |
+
+包目录名 = npm 包名去掉 scope（如 `@kne/prompts-frontend-libs` → `prompts-frontend-libs`）。
+
+**路径对应**：业务仓 `prompts/prompts-frontend-libs/组件示例编写.md` ↔ 源仓 `prompts/组件示例编写.md`（子目录名不同，**文件名一致**）。
+
+## 流程（必须按序）
+
+### 1. 定位文件
+
+1. 读当前项目 `prompts/prompts.json` 与 `prompts/README.md`（或索引 md），确定改哪份 prompt、属于哪个 `@kne/prompts-*`
+2. 若本地无 `prompts/`：先 `npx @kne/npm-tools deployPrompts <type>`（或用户指定的 type），**仍不在业务仓 commit `prompts/`**
+
+### 2. 本地草稿（当前项目）
+
+1. **改前先 Read 全文**，自行保留原文（`prompts/` 被 ignore，**不能**依赖 `git restore`）
+2. 只改**与本次任务相关**的 md，写入业务仓 `prompts/{包目录名}/` 下对应文件
+3. 向用户说明：改了哪些文件、要点 diff、对应源包名
+4. **停下等待用户确认**——不得在同一回合内改源仓、不得开 PR、不得升 npm 版本
+
+### 3. 用户拒绝
+
+1. 用步骤 2 保留的原文**写回**本地 `prompts/` 文件（恢复改前内容）
+2. 汇报已还原；**结束**，不碰源包仓库
+
+### 4. 用户同意
+
+1. 在 **源包仓库**（如 `kne-union/prompts-frontend-libs`）按 `development-workflow`：stash（若有 WIP）→ 从 master 建分支 `cursor/...` → 将**与本地草稿相同**的改动写入源仓 `prompts/` 对应文件
+2. `package.json` **patch +1** 升版本 → commit → push → 开 PR → 合并（CI 发 npm）
+3. 汇报：PR 链接、新版本号；提示用户在业务项目执行 `npx @kne/npm-tools deployPrompts <type>` 刷新本地 `prompts/`（**不要**在业务仓 commit `prompts/`）
+
+## 禁止
+
+- 未经本地草稿与用户确认，直接改 `prompts-frontend-libs` 等源仓或发 PR
+- 用户拒绝后仍改源包或保留本地草稿当最终规范
+- 把 `prompts/` 提交进业务组件仓（应 gitignore）
+- 在源包仓手写与本地草稿不一致的内容
+- 用业务仓 `prompts/` 的副本作为 npm 包唯一来源而不走源仓 PR 发版
+
+## 与 project-prompts-compliance 的分工
+
+| 场景 | 用哪条 |
+|------|--------|
+| 读 prompts 写示例 / 文档 | `project-prompts-compliance` |
+| 发现 prompt 要改、或用户要求更新 prompt | **本规则**（先本地 → 确认 → 源包 PR） |
