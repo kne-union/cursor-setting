@@ -16,6 +16,7 @@ cursor-setting/
 │   ├── experience-similar-search.mdc
 │   ├── kne-document-search.mdc
 │   ├── project-prompts-compliance.mdc
+│   ├── prompts-update-workflow.mdc
 │   ├── no-restart-user-services.mdc
 │   └── responsive-utils-mobile.mdc
 └── README.md
@@ -34,6 +35,7 @@ cursor-setting/
 | `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
 | `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：经 `@kne/npm-tools` 建索引再分层检索 | 涉及 KNE 文档时 |
 | `project-prompts-compliance.mdc` | 项目有 `prompts/` 时先读并按规范编写文档 / 示例；禁止擅自跑 `build:docs`、写 `docs/` / `dist` 示例产物等 | 全局（有 prompts 时强制） |
+| `prompts-update-workflow.mdc` | 更新 prompts：先在当前项目本地 md 草稿让用户确认；拒绝则还原，同意再改 `@kne/prompts-*` 源仓 PR 发版 | 全局（更新 prompts 时强制） |
 | `responsive-utils-mobile.mdc` | 移动端适配统一用 `@kne/responsive-utils` | 全局（KNE 前端） |
 | `no-restart-user-services.mdc` | 禁止擅自重启用户本地开发服务 | 全局 |
 
