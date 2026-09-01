@@ -1,0 +1,67 @@
+---
+description: 项目含 prompts/ 时须先读并按其中规范编写；禁止擅自生成无关文件或跑未授权的构建脚本
+alwaysApply: true
+---
+
+# 项目 prompts 规范（优先于自行发挥）
+
+仓库根目录（或当前改动的包根目录）存在 **`prompts/`** 或 **`prompts.json`** 时，涉及文档、示例、国际化、package 描述等编写任务，**必须先读 prompts 再动手**，严格按其中要求执行。**禁止**凭习惯或猜测另起一套流程。
+
+## 何时触发
+
+- 编写 / 修改 `doc/`、`example.json`、示例 `.js`、`style.scss`、`api.md`、`summary.md`
+- 运行 `build:md`、`build:docs` 及任何文档 / 示例相关 npm script
+- 为组件库补示例、改 scope、处理示例样式
+- 用户未点名具体文件，但任务明显属于 prompts 索引中的某一类（见下）
+
+## 第一步：定位 prompts
+
+1. 从**当前改动包的根目录**（monorepo 子包则该子包根）查找 `prompts/`、`prompts.json`
+2. 若有 `prompts.json`，其中可能声明依赖（如 `@kne/prompts-frontend-libs`）→ 在 `node_modules` 或仓库约定路径解析对应文档
+3. 先读 `prompts/README.md` 或 `prompts/生成README索引.md`（若存在）做索引，再**只读与本次任务相关的** prompt 文件（勿整包塞进上下文）
+
+### 常见任务 → prompt 对照
+
+| 任务 | 优先阅读的 prompt |
+|------|-------------------|
+| 组件示例、`example.json`、scope、`doc/*.js` | `组件示例编写.md`（可能在 `prompts-frontend-libs/` 下） |
+| `api.md` / `summary.md` | `生成文档.md` |
+| 国际化 | `国际化.md` / `生成语言包.md` |
+| package 描述与 keywords | `完善package.json描述和关键词.md` |
+| remote 组件仓 | `prompts-remote-components/` 下对应文档 |
+
+索引里没有覆盖的场景：**先问用户**，不要自造规范。
+
+## 必须遵守的编写约定（与 prompts 一致）
+
+- 示例与文档源文件在 **`doc/`**，不是 `docs/`；README 由 **`build:md`（md-doc）** 生成，**勿手改** README 中由工具生成的章节
+- 示例样式：`doc/style.scss` → `build:md` → README `#### 示例样式`；**禁止**把示例样式编译进 `dist/`、**禁止**在 scope 里引 `doc/style.scss`（npm 消费者无此路径）
+- Modal / Drawer 等 portal 内 demo 样式：在 `doc/style.scss` 用 **`@at-root`** 逃出 md-doc scope，**禁止**改 md-doc 全局行为、**禁止** webpack alias 兜底，除非用户明确要求
+- scope 样式只引 **`dist/index.css`**（组件库发布样式），规则以 `组件示例编写.md` 为准
+- 只创建 prompts 流程中规定的文件；新示例只加 `doc/` 内条目，不复制整套无关 scaffold
+
+## 禁止擅自生成 / 执行（除非用户明确要求或 prompts 写明）
+
+| 禁止 | 说明 |
+|------|------|
+| 跑 `build:docs` / 生成 **`docs/*.md`** | components-core 等仓的 `docs/` 是 modules-dev 索引输出，不是 `doc/` 源；未授权不得跑 |
+| 往 **`dist/`** 写示例 / demo CSS | 示例样式不走发布产物 |
+| 新建 **`prompts/`** 或改写项目 prompts | 不把 agent 自拟规范写进仓库 prompts |
+| **`graphify-out/`**、plan 文件、临时 alias 文件 | 与当前任务无关的附属产物 |
+| 未在 prompts 中的 script | 例如自造 `build:example-demo-css`、擅自 `npm run build:docs` |
+
+需要跑构建脚本时：prompts 或用户指令里**写清 script 名**再执行；执行前说明会改动哪些路径。
+
+## 与用户指令的关系
+
+- 用户明确要求某文件 / 某 script → 可突破上表，但仍须符合 prompts 中不冲突的硬性约定（如 `doc/` vs `docs/`）
+- 用户只说「改示例 / 改文档」→ 默认走 prompts，**不得**顺带生成索引、plan、dist 侧车文件
+
+## 自检（改完文档 / 示例前）
+
+1. 是否已读本次任务对应的 prompt？
+2. 新增 / 修改的文件是否都在 prompts 允许的路径内？
+3. 是否误跑 `build:docs` 或往 `dist/`、`docs/` 写了东西？
+4. README 是否只通过 `build:md` 更新（若任务涉及）？
+
+任一项否 → 停止，先对齐 prompts 或问用户。
