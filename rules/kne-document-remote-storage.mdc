@@ -1,0 +1,150 @@
+---
+description: kne_document 双写同步：本地落盘 + MCP 上传（优先）/ REST 脚本兜底；sync-registry.json 记录已同步的服务地址
+alwaysApply: true
+---
+
+# kne_document 远程同步（本地优先 + 同步列表）
+
+与 `worklog-write`、`experience-distill-write` 配合。**始终先写本地**；配置了 remote 时再向服务端同步，并在 `sync-registry.json` 记录。
+
+## 文件布局
+
+根目录：`~/.kne_document/`（不入业务仓）
+
+| 文件 | 作用 |
+|------|------|
+| `config.json` | 当前连接：`remote.syncUrl` / `remote.apiUrl`、`remote.token`、`remote.mcpUrl` |
+| `sync-registry.json` | **同步列表**：每条本地 JSON 对应一条记录（含已同步的 `apiUrl`） |
+| `worklog/**.json` | 工作日志（**始终保留本地**） |
+| `experience/**.json` | 经验卡（**始终保留本地**） |
+
+### config.json
+
+```json
+{
+  "remote": {
+    "syncUrl": "https://develop.leapin-ai.com/api/v1",
+    "apiUrl": "https://develop.leapin-ai.com/api/v1",
+    "mcpUrl": "https://develop.leapin-ai.com/api/v1/mcp",
+    "token": "<x-user-token>"
+  },
+  "lastSyncApiUrl": "https://develop.leapin-ai.com/api/v1",
+  "lastSyncAt": "2026-09-01T12:00:00+08:00"
+}
+```
+
+### sync-registry.json
+
+```json
+{
+  "schemaVersion": 1,
+  "entries": {
+    "worklog/project/2026-01-01-12-00-00/标题.json": {
+      "apiUrl": "https://develop.leapin-ai.com/api/v1",
+      "syncedAt": "2026-09-01T12:00:00+08:00",
+      "action": "created",
+      "contentHash": "<sha256>"
+    },
+    "experience/library/foo/bar.json": {
+      "apiUrl": "https://develop.leapin-ai.com/api/v1",
+      "syncedAt": "2026-09-02T09:00:00+08:00",
+      "action": "updated",
+      "contentHash": "<sha256>"
+    }
+  }
+}
+```
+
+- `entries` 的 key = **registryKey**：相对 `~/.kne_document/` 的完整路径（**含** `worklog/` 或 `experience/` 前缀）
+- **`apiUrl`**：该条目最后一次成功同步到的服务地址（换服务后须重传）
+
+## 何时向服务端同步
+
+**条件**（满足其一即可尝试同步）：
+
+1. Cursor 会话内 **`user-developer-document` MCP** 可用（`GetDynamicTools` 可见 `upload_worklog` / `upload_experience`）
+2. 或 `config.json` 中 `remote.syncUrl` / `remote.apiUrl` 与 `remote.token` 均非空（走 REST 脚本兜底）
+
+**须同步**（相对当前 `apiUrl`）当满足任一：
+
+1. `sync-registry.json` **无**该 registryKey 条目
+2. 条目 `apiUrl` **≠** 当前服务地址（**换了新服务 → 重传该文件**）
+3. 本地 JSON 内容变化（`contentHash` 与 registry 不一致）
+
+**禁止**因同步成功而删除本地文件。
+
+## 写入流程（worklog / experience 通用）
+
+1. **本地落盘**（路径规则见各写入规则）
+2. 判定 remote 是否可用（见上「何时向服务端同步」）；不可用 → 结束（仅本地）
+3. **立即**对刚写入文件执行同步（见下「同步方式」；**MCP 优先**）
+4. 成功 → 更新 `sync-registry.entries[registryKey]`（`apiUrl`、`syncedAt`、`action`、`contentHash`）；可选更新 `config.json` 的 `lastSyncAt` / `lastSyncApiUrl`
+5. 失败 → **保留本地**；不更新 registry；回复中**一行**说明同步失败（**不阻断** `WORKLOG_WRITTEN` / 经验 `created|updated|skipped`）
+
+## 路径约定（易错）
+
+| 类型 | registryKey（sync-registry / REST `--file`） | MCP `upload_*` 的 `relativePath` |
+|------|-----------------------------------------------|-------------------------------------|
+| worklog | `worklog/{project}/{timestamp}/{title}.json` | **去掉** `worklog/` → `{project}/{timestamp}/{title}.json` |
+| experience | `experience/{category}/.../{slug}.json` | **去掉** `experience/` → `{category}/.../{slug}.json` |
+
+`check_worklog_exists` / `check_experience_exists` 的查重路径与对应 **`upload_*` 的 MCP 路径**一致（不含类型根目录前缀）。
+
+## 同步方式
+
+### 1. MCP（Cursor 会话内**首选**）
+
+1. `GetDynamicTools` 确认 namespace `user-developer-document` 可用
+2. Read 刚落盘的本地 JSON → `content`
+3. 调用 MCP：
+   - worklog → `upload_worklog`：`{ relativePath: <MCP 路径>, content }`
+   - experience → `upload_experience`：`{ relativePath: <MCP 路径>, content }`
+4. **禁止**正常流程传 `skipIfExists: true`（须 upsert）
+5. 成功后按上节更新 `sync-registry.json`（`contentHash` = 本地 JSON 对象的 sha256，算法同 `developer-document/server/scripts/kne-document-sync-lib.js` 的 `hashContent`）
+
+### 2. REST 脚本（MCP 不可用时的兜底）
+
+在 **developer-document** 仓库 `server/` 下（须已 clone 且可 `npm i`）：
+
+```bash
+# 单条（registryKey 含 worklog/ 或 experience/ 前缀）
+npm run sync:kne-document -- --file "worklog/<project>/<timestamp>/<title>.json"
+
+# 全量：未同步 / 换服务 / 本地有改动
+npm run sync:kne-document -- --api-url <url> --token <token>
+
+# 换服务后强制重传
+npm run sync:kne-document -- --api-url <新url> --token <token> --force
+```
+
+脚本会自动更新 `sync-registry.json`。上传接口：`POST {apiUrl}/worklog/upload` 或 `/experience/upload`。
+
+## 首次配置
+
+```bash
+npx @kne/npm-tools initDevDocumentMcp \
+  --target cursor \
+  --sync-url https://develop.leapin-ai.com/api/v1 \
+  --mcp-url https://develop.leapin-ai.com/api/v1/mcp \
+  --token "<登录 token>"
+```
+
+历史本地文件首次上云（**不删本地**）：
+
+```bash
+cd <developer-document>/server && npm run sync:kne-document -- --api-url ... --token ...
+```
+
+## 检索
+
+- **读取 / 相似经验检索**：仍以本地 `experience/` 为准（`experience-similar-search`）
+- 服务端为备份与多端；不以 remote 替代本地读
+
+## 禁止
+
+- 本地落盘后**不调用** MCP / 脚本就结束（有 remote 时必须尝试同步）
+- 同步成功后删除本地 worklog/experience JSON
+- 用 `storage: remote` 跳过本地落盘（已废弃）
+- MCP 路径带 `worklog/` / `experience/` 前缀（会传错）
+- 换 `apiUrl` 后不更新 registry、不触发重同步
+- 把 `config.json`、`sync-registry.json`、token 提交进业务仓库

@@ -37,6 +37,13 @@ alwaysApply: true
 - **JSON / 信号里的 path 只记相对子路径**，禁止绝对路径
 - 目录不存在则创建；**不要**把该文件写进业务仓库
 
+## 本地落盘 + 远程同步
+
+1. **必须先**按上节路径 **Write 本地 JSON**
+2. **立即**按 `kne-document-remote-storage` 同步到 remote（**MCP `upload_worklog` 优先**；MCP 不可用时 REST 脚本兜底）
+3. 同步成功更新 `~/.kne_document/sync-registry.json`；失败则保留本地并**一行**说明，**仍输出** `WORKLOG_WRITTEN`
+4. **禁止**因同步而跳过本地落盘或删除本地文件
+
 ## 信号 → 字段映射
 
 | 信号字段 | 写入位置 |
@@ -131,3 +138,5 @@ title: <title>
 - 把绝对路径写入 JSON 或信号
 - 把日志文件写进业务仓库
 - 输出 `WORKLOG_WRITTEN` 的同时自行写 experience
+- **未本地落盘仅走服务端 upload**
+- **同步成功仍删除本地 worklog 文件**
