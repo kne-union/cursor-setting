@@ -14,6 +14,7 @@ cursor-setting/
 │   ├── worklog-write.mdc
 │   ├── experience-distill-write.mdc
 │   ├── experience-similar-search.mdc
+│   ├── kne-document-remote-storage.mdc
 │   ├── kne-document-search.mdc
 │   ├── project-prompts-compliance.mdc
 │   ├── prompts-update-workflow.mdc
@@ -30,9 +31,10 @@ cursor-setting/
 |------|------|----------|
 | `development-workflow.mdc` | 改代码：有 WIP 则 stash → 建分支 → 开发 → 验收 → 升版本/提交 → Push/PR → 还原 stash；结束后输出 `DEVELOPMENT_COMPLETE` | **仅** remote 为 `kne-union/*` 的仓库 |
 | `business-development-workflow.mdc` | 改代码：原仓有 WIP 则 stash → 拷到 `~/.cursor_workplace` → 立刻还原；验收后副本提交 → 原仓再 stash → 同名分支拷回并 merge 个人基线 → 立刻还原；输出 `DEVELOPMENT_COMPLETE` | **非** kne-union 的业务仓库 |
-| `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志，并输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
-| `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡（价值门槛过滤；business/library/process；先搜后补） | 全局（靠信号门禁） |
+| `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志 → **MCP/REST 同步 remote** → 输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
+| `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡 → **MCP/REST 同步 remote**（价值门槛；business/library/process） | 全局（靠信号门禁） |
 | `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
+| `kne-document-remote-storage.mdc` | worklog/experience **本地落盘后** MCP `upload_*` 优先同步 + `sync-registry.json` | 全局 |
 | `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：经 `@kne/npm-tools` 建索引再分层检索 | 涉及 KNE 文档时 |
 | `project-prompts-compliance.mdc` | 项目有 `prompts/` 时先读并按规范编写文档 / 示例；禁止擅自跑 `build:docs`、写 `docs/` / `dist` 示例产物等 | 全局（有 prompts 时强制） |
 | `prompts-update-workflow.mdc` | 更新 prompts：先在当前项目本地 md 草稿让用户确认；拒绝则还原，同意再改 `@kne/prompts-*` 源仓 PR 发版 | 全局（更新 prompts 时强制） |
@@ -45,10 +47,11 @@ cursor-setting/
 development-workflow（PR 成功）
   或 business-development-workflow（原仓个人基线 merge 成功）
   → DEVELOPMENT_COMPLETE
-  → worklog-write → worklog/{project}/{timestamp}/{title}.json
-  → WORKLOG_WRITTEN
-  → experience-distill-write → experience/business|library|process/...（价值门槛 → 先搜后补；低价值 skipped）
+  → worklog-write → 本地 worklog + MCP upload_worklog（或 REST 兜底）→ WORKLOG_WRITTEN
+  → experience-distill-write → 本地 experience + MCP upload_experience（或 REST 兜底；低价值 skipped）
 ```
+
+远程同步细则见 `kne-document-remote-storage`（**MCP 路径不含** `worklog/` / `experience/` 前缀；registry 含前缀）。
 
 路径均相对 `~/.kne_document/`（禁止在 JSON/信号中存绝对路径）。业务项目的 workplace 副本在 `~/.cursor_workplace/`，不进本仓库。
 
@@ -118,6 +121,8 @@ alwaysApply: true
 | `~/.kne_document/experience/business/` | 项目业务经验卡 |
 | `~/.kne_document/experience/library/` | 组件/库用法与场景经验卡 |
 | `~/.kne_document/experience/process/` | 发版 / PR / CI 等交付流程经验卡 |
+| `~/.kne_document/config.json` | developer-document MCP/REST 连接与 token |
+| `~/.kne_document/sync-registry.json` | 已同步到 remote 的 worklog/experience 登记 |
 | `~/.kne_document_indexed/` | `@kne` / remote 文档切分索引（见 `kne-document-search`） |
 
 ## 与项目级规则的区别

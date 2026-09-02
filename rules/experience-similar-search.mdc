@@ -7,7 +7,7 @@ alwaysApply: true
 
 本规则独立于工作日志写入与经验提炼。只负责动手前**读取** `~/.kne_document/experience` 下的经验卡（`business` / `library` / `process`）。不扫 `worklog/`。
 
-开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续。写入/补充见 `experience-distill-write`。
+开始改代码、排错，或用户问「怎么做」且可能有历史经验时先查。无目录 / 无命中 → 一句话带过，直接继续。写入/补充见 `experience-distill-write`；服务端同步见 `kne-document-remote-storage`（**检索仍以本地为准**）。
 
 ## 路径
 

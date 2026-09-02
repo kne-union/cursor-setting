@@ -92,7 +92,7 @@ acceptance: <用户验收原话摘要>
 
 - 本规则到此结束；**不要**在本规则内写 `~/.kne_document/worklog` 或 `experience`
 - 工作日志由 `worklog-write` 在收到上述信号后执行；经验由 `experience-distill-write` 在 `WORKLOG_WRITTEN` 后执行
-- **强制收尾**：PR 创建成功并发出 `DEVELOPMENT_COMPLETE` 后，**当前需求即视为结束**；但 agent 仍必须把后续记录步骤自动跑完。也就是说，发出信号后必须继续完成 `worklog-write`，拿到 `WORKLOG_WRITTEN` 后再继续执行 `experience-distill-write`（可为 `skipped`）。这些属于需求结束后的自动收尾，**不要**因为用户马上追问别的问题就直接跳过。
+- **强制收尾**：PR 创建成功并发出 `DEVELOPMENT_COMPLETE` 后，**当前需求即视为结束**；但 agent 仍必须把后续记录步骤自动跑完。也就是说，发出信号后必须继续完成 `worklog-write`（含 MCP/REST 远程同步）并输出 `WORKLOG_WRITTEN`，随后继续执行 `experience-distill-write`（含远程同步；可为 `skipped`）。这些属于需求结束后的自动收尾，**不要**因为用户马上追问别的问题就直接跳过。
 
 ## 禁止
 - 在非 kne-union 仓库套用本流程
