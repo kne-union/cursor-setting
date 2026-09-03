@@ -38,7 +38,7 @@ cursor-setting/
 | `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡 → **MCP/REST 同步 remote**（价值门槛；business/library/process） | 全局（靠信号门禁） |
 | `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
 | `kne-document-remote-storage.mdc` | worklog/experience **本地落盘后** MCP `upload_*` 优先同步 + `sync-registry.json` | 全局 |
-| `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：经 `@kne/npm-tools` 建索引再分层检索 | 涉及 KNE 文档时 |
+| `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：优先 MCP `search_document_index`（必要时 `fetch_docs`）；本地 npm-tools 索引仅兜底 | 涉及 KNE 文档时 |
 | `project-prompts-compliance.mdc` | 项目有 `prompts/` 时先读并按规范编写文档 / 示例；禁止擅自跑 `build:docs`、写 `docs/` / `dist` 示例产物等 | 全局（有 prompts 时强制） |
 | `prompts-update-workflow.mdc` | 更新 prompts：先在当前项目本地 md 草稿让用户确认；拒绝则还原，同意再改 `@kne/prompts-*` 源仓 PR 发版 | 全局（更新 prompts 时强制） |
 | `responsive-utils-mobile.mdc` | 移动端适配统一用 `@kne/responsive-utils` | 全局（KNE 前端） |
@@ -153,7 +153,7 @@ alwaysApply: true
 | `~/.kne_document/experience/process/` | 发版 / PR / CI 等交付流程经验卡 |
 | `~/.kne_document/config.json` | developer-document MCP/REST 连接与 token |
 | `~/.kne_document/sync-registry.json` | 已同步到 remote 的 worklog/experience 登记 |
-| `~/.kne_document_indexed/` | `@kne` / remote 文档切分索引（见 `kne-document-search`） |
+| `~/.kne_document_indexed/` | `@kne` / remote 文档本地索引（`kne-document-search` 仅在 MCP 不可用时兜底） |
 
 ## 与项目级规则的区别
 
