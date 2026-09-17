@@ -21,7 +21,9 @@ cursor-setting/
 │   ├── no-restart-user-services.mdc
 │   └── responsive-utils-mobile.mdc
 ├── skills/                # 用户级 Cursor Skills（各子目录含 SKILL.md）
-│   └── weekly-report/
+│   ├── weekly-report/
+│   │   └── SKILL.md
+│   └── qa-regression-report/
 │       └── SKILL.md
 └── README.md
 ```
@@ -49,6 +51,7 @@ cursor-setting/
 | 目录 | 作用 | 触发场景 |
 |------|------|----------|
 | `skills/weekly-report/` | 用 MCP `search_worklog` 按时间/创建人拉日志并整理周报 | 写周报、本周/上周周报、weekly report |
+| `skills/qa-regression-report/` | 用 MCP `search_worklog` 按今天/本周/本次迭代（git 相对已上线主干）+ 当前项目拉全员日志，整理给测试的功能回归报告 | 回归报告、功能回归、给测试的报告、本次迭代回归 |
 
 同步到本机：`~/.cursor/skills/<skill-name>/`（整目录复制，含 `SKILL.md`）。
 
