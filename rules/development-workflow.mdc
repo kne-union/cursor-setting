@@ -58,6 +58,26 @@ alwaysApply: true
 - 「差不多了」「先这样」「看看」等不算验收通过，须再确认
 ## 5. 升版本 + 提交
 用户验收通过并授权提交后：
+
+### 5.0 提交前：本地调试泄漏门禁（必须先过）
+
+在 stage / commit **之前**检查本次将提交的 diff（含 `preset.js`、`package.json`、`package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` 等）。命中任一项则**停止提交**，列出路径与原文，请用户确认：改回 CDN/npm 正式地址后再提交，或明确授权「带本地调试配置提交」（默认不授权）。
+
+| 检查项 | 典型命中 | 处理 |
+|---|---|---|
+| 远程组件仍指向本机 | `preset.js` / `remoteLoaderPreset` 里未注释的 `url: 'http://localhost:…'`、`127.0.0.1`、本机 IP；或 `tpl: '{{url}}'` 配本地 url | 注释掉本地 url/tpl，恢复 registry CDN（`https://cdn.leapin-ai.com` 等）与已发版 `defaultVersion` |
+| `file:` 本地依赖 | `package.json` / lockfile 中 `"xxx": "file:…"`、`link:…`（调试用本地路径） | 改回 registry 版本号；勿把未发布的本地 path 写进将合入的依赖 |
+| 本地拷包未发版 | 将未发版包的 `dist`/`build` rsync 或覆盖进 `node_modules/@…`；或依赖指向仅本地存在、CDN/npm 尚无对应 version 的包 | 等包发版且 CDN/npm 可访问后再升 `defaultVersion` / 依赖版本；**禁止**把「只在本机拷过源码、未发版」当成已交付 |
+
+建议快速扫（在仓库根，按项目调整路径）：
+
+```bash
+# 远程组件本机地址（忽略已注释行需人工看上下文）
+rg -n "localhost:|127\\.0\\.0\\.1|file:|link:" --glob '**/preset.js' --glob '**/package.json' --glob '**/*lock*' .
+```
+
+门禁通过后再继续：
+
 1. 升级相关包 package.json 的 version（未指定则 patch +1）；有功能/修复改动必须升版本
 2. 并行 git status、git diff、git log -1
 3. 只 stage 本次相关文件；不提交 .env、密钥等
@@ -101,6 +121,7 @@ acceptance: <用户验收原话摘要>
 - pop 冲突后执行 `stash drop`
 - 用 `stash -a` 把 ignore 目录（如 `node_modules`）塞进 stash
 - 未验收就升版本/commit/push/PR
+- 未过「5.0 本地调试泄漏门禁」仍提交（本机 remote url、`file:`/`link:` 依赖、未发版本地拷包）
 - 功能/修复 PR 不带 version bump
 - PR 未成功却输出 `DEVELOPMENT_COMPLETE`
 - 输出信号的同时自行写 worklog / experience
