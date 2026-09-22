@@ -177,6 +177,24 @@ done
 
 用户验收通过并授权提交后（含仅说「提交」），在 **WORKPLACE_ROOT** 的功能分支上：
 
+### 6.0 提交前：本地调试泄漏门禁（必须先过）
+
+在 stage / commit **之前**检查本次将提交的 diff（含 `preset.js`、`package.json`、`package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` 等）。命中任一项则**停止提交**，列出路径与原文，请用户确认：改回 CDN/npm 正式地址后再提交，或明确授权「带本地调试配置提交」（默认不授权）。
+
+| 检查项 | 典型命中 | 处理 |
+|---|---|---|
+| 远程组件仍指向本机 | `preset.js` / `remoteLoaderPreset` 里未注释的 `url: 'http://localhost:…'`、`127.0.0.1`、本机 IP；或 `tpl: '{{url}}'` 配本地 url | 注释掉本地 url/tpl，恢复 registry CDN（`https://cdn.leapin-ai.com` 等）与已发版 `defaultVersion` |
+| `file:` 本地依赖 | `package.json` / lockfile 中 `"xxx": "file:…"`、`link:…`（调试用本地路径） | 改回 registry 版本号；勿把未发布的本地 path 写进将合入的依赖 |
+| 本地拷包未发版 | 将未发版包的 `dist`/`build` rsync 或覆盖进 `node_modules/@…`；或依赖 / `defaultVersion` 指向仅本地存在、CDN/npm 尚无对应 version 的包 | 等包发版且 CDN/npm 可访问后再升版本；**禁止**把「只在本机拷过源码、未发版」当成已交付 |
+
+建议快速扫（在 **WORKPLACE_ROOT**）：
+
+```bash
+rg -n "localhost:|127\\.0\\.0\\.1|file:|link:" --glob '**/preset.js' --glob '**/package.json' --glob '**/*lock*' .
+```
+
+门禁通过后再继续：
+
 1. 升级相关包 `package.json` 的 version（未指定则 patch +1）；有功能/修复改动必须升版本
 2. 并行 `git status`、`git diff`、`git log -1`
 3. 只 stage 本次相关文件；不提交 `.env`、密钥等
@@ -259,6 +277,7 @@ workplace: <WORKPLACE_ROOT>
 - 对嵌套在 `node_modules` 内的路径做 `ln -sfn`，或对已存在的真实目录直接 `ln -sfn`（会在 SOURCE 造出 `pkg/node_modules/node_modules`）
 - 拷回原仓时同步/覆盖 `node_modules`
 - 未验收就升版本/commit/merge/拷回
+- 未过「6.0 本地调试泄漏门禁」仍提交（本机 remote url、`file:`/`link:` 依赖、未发版本地拷包）
 - 等待验收时不给出具体启动/验证命令（或未写成 `cd "$WORKPLACE_ROOT" && …` 单行 / 臆造 script）
 - merge 成功后不清理 `$WORKPLACE_ROOT`、或不回到 **SOURCE_ROOT** 继续
 - 调用 `move_agent_to_root` / `move_agent_to_cloned_root`（会触发 fetch；**不等于**禁止 merge 后回到 SOURCE）
