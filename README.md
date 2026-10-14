@@ -38,7 +38,7 @@ cursor-setting/
 | `business-development-workflow.mdc` | 改代码：原仓有 WIP 则 stash → 拷到 `~/.cursor_workplace` → 立刻还原；验收后副本提交 → 原仓再 stash → 同名分支拷回并 merge 个人基线 → 立刻还原；输出 `DEVELOPMENT_COMPLETE` | **非** kne-union 的业务仓库 |
 | `worklog-write.mdc` | 收到 `DEVELOPMENT_COMPLETE` 后写入工作日志 → **MCP/REST 同步 remote** → 输出 `WORKLOG_WRITTEN` | 全局（靠信号门禁） |
 | `experience-distill-write.mdc` | 收到 `WORKLOG_WRITTEN` 后提炼经验卡 → **MCP/REST 同步 remote**（价值门槛；business/library/process） | 全局（靠信号门禁） |
-| `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process` | 全局 |
+| `experience-similar-search.mdc` | 动手前分层检索 `experience/business`、`library` 与 `process`，并经 MCP 检索 Prompts 包提示词 | 全局 |
 | `kne-document-remote-storage.mdc` | worklog/experience **本地落盘后** MCP `upload_*` 优先同步 + `sync-registry.json` | 全局 |
 | `kne-document-search.mdc` | 查 `@kne/*` / remote 组件文档：优先 MCP `search_document_index`（必要时 `fetch_docs`）；本地 npm-tools 索引仅兜底 | 涉及 KNE 文档时 |
 | `project-prompts-compliance.mdc` | 项目有 `prompts/` 时先读并按规范编写文档 / 示例；禁止擅自跑 `build:docs`、写 `docs/` / `dist` 示例产物等 | 全局（有 prompts 时强制） |
