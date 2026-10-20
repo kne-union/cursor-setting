@@ -23,7 +23,9 @@ cursor-setting/
 ├── skills/                # 用户级 Cursor Skills（各子目录含 SKILL.md）
 │   ├── weekly-report/
 │   │   └── SKILL.md
-│   └── qa-regression-report/
+│   ├── qa-regression-report/
+│   │   └── SKILL.md
+│   └── app-center-development/
 │       └── SKILL.md
 └── README.md
 ```
@@ -52,6 +54,7 @@ cursor-setting/
 |------|------|----------|
 | `skills/weekly-report/` | 用 MCP `search_worklog` 按时间/创建人拉日志并整理周报 | 写周报、本周/上周周报、weekly report |
 | `skills/qa-regression-report/` | 用 MCP `search_worklog` 按今天/本周/本次迭代（git 相对已上线主干）+ 当前项目拉全员日志，整理给测试的功能回归报告 | 回归报告、功能回归、给测试的报告、本次迭代回归 |
+| `skills/app-center-development/` | 应用中心应用的标准开发流程（模板、`/app/{name}` 挂载、`env.schema.json`、表前缀、`packApp`、MCP 部署）与前端规范：BizUnit `Table` / `Modal` / `FormInfo` / `InfoPage` 优先于 antd 同类组件 | 新建 / 开发 / 打包 / 部署应用中心应用，写列表、表单、弹窗、详情页 |
 
 同步到本机：`~/.cursor/skills/<skill-name>/`（整目录复制，含 `SKILL.md`）。
 
