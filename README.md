@@ -51,7 +51,7 @@ cursor-setting/
 | 目录 | 作用 | 触发场景 |
 |------|------|----------|
 | `skills/weekly-report/` | 用 MCP `search_worklog` 按时间/创建人拉日志并整理周报 | 写周报、本周/上周周报、weekly report |
-| `skills/qa-regression-report/` | 用 MCP `search_worklog` 按今天/本周/本次迭代（git 相对已上线主干）+ 当前项目拉全员日志，整理给测试的功能回归报告 | 回归报告、功能回归、给测试的报告、本次迭代回归 |
+| `skills/qa-regression-report/` | 用 MCP `search_worklog` 按今天/本周/本次迭代（git 相对已上线主干）+ 当前项目拉全员日志，整理给测试的功能回归报告 | 测试用例、测试重点、回归报告、功能回归、给测试的报告、重新发布后通知测试（提到发邮件时再发信） |
 
 同步到本机：`~/.cursor/skills/<skill-name>/`（整目录复制，含 `SKILL.md`）。
 

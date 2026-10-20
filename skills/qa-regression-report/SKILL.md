@@ -3,9 +3,11 @@ name: qa-regression-report
 description: >-
   Builds a QA functional regression report from developer-document MCP
   search_worklog (today / this week / current iteration via git vs shipped
-  baseline, current project, all creators). Use when the user asks for
-  回归报告, 功能回归, 给测试的报告, qa regression, regression report,
-  本次迭代回归, or 今天改动回归.
+  baseline / since the latest release, current project plus its dependency
+  packages, all creators). Use when the user asks for 测试用例, 写用例,
+  回归用例, 测试重点, 回归报告, 功能回归, 给测试的报告, 通知测试,
+  重新发布 / 发版后让测试回归, qa regression,
+  regression report, test cases, 本次迭代回归, or 今天改动回归.
 ---
 
 # 功能回归报告（search_worklog）
@@ -18,6 +20,8 @@ description: >-
 
 - 用户说：回归报告 / 功能回归 / 给测试的报告 / qa regression / regression report
 - 本次迭代回归 / 今天改动回归 / 按本周 worklog 出回归用例
+- 写测试用例 / 测试重点
+- 「某项目重新发布了 / 发版了，通知测试回归」
 
 ## 与 weekly-report 的差异
 
@@ -44,7 +48,14 @@ description: >-
 | 近 N 天 | `days: N` |
 | 指定区间 | 用户给的 `startAt` / `endAt` |
 | **本次迭代** | 见下方算法 |
+| **重新发布 / 发版后** | 见下方「发布后范围」 |
 | 未指明 | 默认 **本次迭代**；非 git 仓则回退 `week: "this"` 并说明 |
+
+#### 发布后范围（用户说「重新发布了 / 发版了」）
+
+1. MCP `get_app`（`name` 为应用名）取 `lastDeploy.version` 作为本次发布版本；`list_app_versions` 看相邻版本
+2. `search_worklog({ project, days: 7, mode: "list" })`，按日志版本号取「上次通知测试之后 → 本次发布版本」的区间；不知道上次通知到哪个版本时，取最近两个自然日，并在报告头写明范围
+3. 报告头写「发布版本」「版本区间」，不写 git 迭代基线
 
 #### 本次迭代算法（当前打开的 git 仓库）
 
@@ -86,6 +97,10 @@ search_worklog({
 - 测试用 / 无实质内容（如纯 sync test）可略
 - 无数据 → 写「该筛选无工作日志」，**不编造用例**
 
+**依赖包一起回归**：同一时间窗再调一次不带 `project` 的 `search_worklog`，只保留本项目依赖的包（对照 `server/package.json` 的 `@kne/*` 依赖与 `src/preset.js` 的 remote 名）的日志，一并写进用例并在追溯里标包名和版本。
+
+**只用 MCP 返回的内容**：用例素材只取 `search_worklog` 输出的标题、需求摘要、版本、PR。**不要**读本地 `~/.kne_document/worklog` 的 JSON 补细节；摘要写不出具体点击路径时，步骤写到功能层面，并在「不在范围」注明「具体操作以实际界面为准」。
+
 ### 5. worklog → 测试条目映射
 
 每条有效日志产出 **1～N** 条可执行回归项（优先 1 条主路径；必要时再加 1～2 条边界/关联）：
@@ -108,6 +123,8 @@ search_worklog({
 ### 6. 输出报告（不要贴原始 MCP 全文）
 
 默认聊天气泡交付 Markdown；用户要求落盘时再写文件。使用下方模板。
+
+**发邮件交付（仅用户明确说发邮件时）**：默认只在聊天里交付，不主动发信。用户明确要求发邮件（如「给 Luna 发测试用例邮件」）时，把同样的内容转成 HTML（表格加边框、内联样式），开头写发布版本和测试地址（`get_app` 的 `pathUrl`），然后按 `send-mail` 技能发信。不需要先在聊天里贴完整报告，发出后回报发件人、收件人、主题和 `messageId`，并概括测试重点。
 
 ## 报告模板
 
@@ -200,7 +217,7 @@ search_worklog({ project: "components-core", startAt: "2026-09-17", endAt: "2026
 ## 禁止
 
 - 跳过 MCP、凭记忆或聊天记录编造变更与用例
-- 用 `search_experience` / 本地扫盘代替 `search_worklog`
+- 用 `search_experience` / 本地扫盘代替 `search_worklog`，或读本地 worklog JSON 补细节
 - 为「本次迭代」执行 `git fetch`
 - 默认只拉 `mine`（除非用户明确只要自己）
 - 臆造 UI 路径、点击步骤或预期结果
