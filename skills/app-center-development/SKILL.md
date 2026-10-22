@@ -46,8 +46,8 @@ npx @kne/npm-tools init <project-name>
 
 应用运行在 `/app/{name}` 下，宿主注入 `window.runtimePublicUrl`。
 
-- 路由 basename、页面内跳转、静态资源统一用模板 `src/commons/publicUrl.js` 的 `getRouterBasename` / `withPublicUrl`
-- 不要手写 `/app/xxx`，也不要用 `window.PUBLIC_URL` 当挂载前缀（它可能是 CDN 地址）
+- 路径统一用 `components-admin:Oidc@appUrl`（components-admin ≥ 1.1.129，模板 `preset.js` 已加载并放进 `globalPreset.appUrl`）：路由 basename 用 `appUrl.routerBasename()`，页面跳转用 `appUrl.page(path)`，接口地址用 `appUrl.api(path)` / `appUrl.apiBase()`，静态资源用 `appUrl.asset(path)`
+- 不要在项目里自写 `publicUrl.js` / `withPublicUrl`，不要手写 `/app/xxx`，也不要用 `window.PUBLIC_URL` 当挂载前缀（它可能是 CDN 地址）
 - 接口走相对 `/api/...`，网关会改写文本响应里的 `"/api/`、`"/static/`、`"/account/` 前缀，以及 `Location` 与 Cookie `Path`
 
 ### 环境变量
@@ -111,7 +111,7 @@ npx @kne/npm-tools packApp --upload --name <应用 name>
 ## 禁止
 
 - `server/` require `src/`，或读取未在 `env.schema.json` 声明的变量
-- 手写 `/app/{name}` 前缀，或用 `window.PUBLIC_URL` 拼页面路由
+- 手写 `/app/{name}` 前缀、自写 `publicUrl.js`，或用 `window.PUBLIC_URL` 拼页面路由（统一用 `Oidc@appUrl`）
 - 写死表名、绕开 `DB_TABLE_PREFIX`
 - 列表 / 表单 / 弹窗 / 详情用 antd `Table` / `Form` / `Modal` / `Descriptions` 自拼（见 `前端组件使用规范.md` 的例外条件）
 - 跳过 `packApp` 手工打包，或复用已上传过的版本号
