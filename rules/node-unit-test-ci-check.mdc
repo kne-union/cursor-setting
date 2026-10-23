@@ -1,0 +1,72 @@
+---
+description: Node.js（尤其 fastify）项目提交前检查是否开启单元测试与 CI 测试，未开启时提示用户
+alwaysApply: true
+---
+
+# 提交前单元测试开启检查（Node.js / fastify）
+
+## 何时执行
+
+在任一开发流程的**提交前**执行：`development-workflow` 的 5.0 门禁之后、`business-development-workflow` 的 6.0 门禁之后，stage / commit 之前。
+
+仅当提交所在包根目录（monorepo 为改动子包，如 `server/`）存在 `package.json` 时生效。
+
+项目类型判定：
+
+| 类型 | 判定 |
+|---|---|
+| fastify 项目 | `dependencies` / `devDependencies` / `peerDependencies` 含 `fastify`，或包名含 `fastify` |
+| 其他 Node.js 项目 | 有 `package.json` 但不满足上面条件 |
+
+纯前端组件库 / remote 组件（依赖 `react` 且无 `fastify`）不在本规则范围。
+
+## 检查项
+
+在包根与仓库根执行，只读不改：
+
+| 检查项 | 判定为「未开启」 |
+|---|---|
+| 测试脚本 | `scripts.test` 不存在，或是 npm 占位命令（含 `no test specified`） |
+| 测试文件 | 不存在 `test/`、`tests/`、`__tests__/` 目录，也没有 `*.test.js` / `*.spec.js`（排除 `node_modules`） |
+| CI 跑测试 | `.github/workflows/` 中没有在 PR 或发布时执行测试的 job，见下方说明 |
+
+CI 判定要点：
+
+- 引用 `kne-union/actions/.github/workflows/node-test.yml` 且 `run_test` 不为 `false` → 已开启
+- 引用 `publish-node-workflow.yml` 时，**`run_test` 默认 `false`**，未显式写 `run_test: true` 视为发布前不跑测试
+- 引用 `publish-fullstack-app-workflow.yml` 或自写 job 中执行 `npm test` / `yarn test` / `pnpm test` → 已开启
+- 只有发布 workflow、没有 PR 单测 workflow → 提示「PR 不跑单测」
+
+## 提示方式
+
+任一项未开启时，在提交前向用户输出提示，列出缺失项与对应文件路径：
+
+- **fastify 项目**：停下，用 `AskQuestion` 让用户选择「先开启单元测试」或「本次照常提交」；用户选择前不得 commit
+- **其他 Node.js 项目**：输出提示后照常提交，不阻断
+
+全部开启时不输出任何内容。
+
+用户选择「先开启单元测试」时，按当前开发流程在同一功能分支补齐，参考：
+
+```yaml
+# .github/workflows/test.yml
+name: Unit Test
+on:
+  pull_request:
+    branches: [master]
+jobs:
+  test:
+    uses: kne-union/actions/.github/workflows/node-test.yml@master
+    with:
+      install-command: npm install
+      test-command: npm test
+```
+
+发布 workflow 引用 `publish-node-workflow.yml` 时补 `run_test: true`。Node 版本矩阵默认用共享 workflow 的默认值，只有项目不兼容低版本 Node（如 `engines` 要求 `>=22`）时才显式传 `node-versions`。
+
+## 禁止
+
+- 未检查就提交 fastify 项目
+- 为通过检查而添加空测试或恒为通过的测试
+- 擅自修改 workflow 开启测试（须用户选择「先开启单元测试」）
+- 因本检查跳过或替代其他提交门禁

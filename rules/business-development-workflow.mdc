@@ -193,7 +193,7 @@ done
 rg -n "localhost:|127\\.0\\.0\\.1|file:|link:" --glob '**/preset.js' --glob '**/package.json' --glob '**/*lock*' .
 ```
 
-门禁通过后再继续：
+门禁通过后，Node.js 项目先按 `node-unit-test-ci-check` 检查单元测试是否开启（fastify 项目未开启须等用户选择），再继续：
 
 1. 升级相关包 `package.json` 的 version（未指定则 patch +1）；有功能/修复改动必须升版本
 2. 并行 `git status`、`git diff`、`git log -1`
