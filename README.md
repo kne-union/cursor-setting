@@ -19,6 +19,7 @@ cursor-setting/
 │   ├── project-prompts-compliance.mdc
 │   ├── prompts-update-workflow.mdc
 │   ├── no-restart-user-services.mdc
+│   ├── node-unit-test-ci-check.mdc
 │   └── responsive-utils-mobile.mdc
 ├── skills/                # 用户级 Cursor Skills（各子目录含 SKILL.md）
 │   ├── weekly-report/
@@ -47,6 +48,7 @@ cursor-setting/
 | `prompts-update-workflow.mdc` | 更新 prompts：先在当前项目本地 md 草稿让用户确认；拒绝则还原，同意再改 `@kne/prompts-*` 源仓 PR 发版 | 全局（更新 prompts 时强制） |
 | `responsive-utils-mobile.mdc` | 移动端适配统一用 `@kne/responsive-utils` | 全局（KNE 前端） |
 | `no-restart-user-services.mdc` | 禁止擅自重启用户本地开发服务 | 全局 |
+| `node-unit-test-ci-check.mdc` | 提交前检查 Node.js 项目是否有测试脚本、测试文件与 CI 单测；fastify 项目未开启时须用户选择后再提交，其他 Node 项目仅提示 | 全局（Node.js 项目提交前） |
 
 ## Skills 一览
 
