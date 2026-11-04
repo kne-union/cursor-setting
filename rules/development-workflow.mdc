@@ -48,6 +48,13 @@ alwaysApply: true
 - 确定主分支（main / master，或仓库约定主干）
 - 从最新主干创建分支，命名：cursor/<简短英文描述>
 - 若平台要求分支后缀，按要求追加；重名则追加 -2、-3…
+### 2.1 检查未合并 PR（建分支后、改代码前）
+- 当前仓库：`gh pr list --state open --json number,title,headRefName,files`，向用户列出与本次需求**改同一批文件**或**同属一个功能**的 open PR
+  - 有重叠：先问用户是基于该 PR 分支继续、把它合进本次分支，还是保持独立；不要擅自合并或关闭他人 PR
+  - 记下各 open PR 在 `package.json` 中占用的 version（`gh pr diff <n> -- package.json` 或查看该分支），供第 5 步避让
+- 依赖仓库：本次需求依赖其他 kne-union 包的改动（升级依赖、联调、「已在 xxx 修过」）时，到对应仓库查 open PR，并核对 npm 已发布版本**是否真的包含**该改动（`npm view <pkg> version` + 对照已发布产物或 master 提交）
+  - 改动只在 open PR 中、未合并发版：明确告诉用户「尚未发布」，**禁止**把依赖写成未发布版本，也不得把本机拷包的效果当成已交付
+  - 版本号相近不等于包含：同一仓库可能有后开的 PR 先发版、早开的 PR 仍未合并
 ## 3. 开发
 - 只改与需求相关的代码，保持最小改动
 - 能跑则跑相关测试/检查；失败则修复
@@ -79,6 +86,7 @@ rg -n "localhost:|127\\.0\\.0\\.1|file:|link:" --glob '**/preset.js' --glob '**/
 门禁通过后，Node.js 项目先按 `node-unit-test-ci-check` 检查单元测试是否开启（fastify 项目未开启须等用户选择），再继续：
 
 1. 升级相关包 package.json 的 version（未指定则 patch +1）；有功能/修复改动必须升版本
+   - 基准取 `max(master 版本, npm 最新版本, 当前 open PR 已占用的版本)` 再 patch +1，避免与未合并 PR 撞号；提交前再跑一次 `gh pr list --state open` 确认无新增占用
 2. 并行 git status、git diff、git log -1
 3. 只 stage 本次相关文件；不提交 .env、密钥等
 4. HEREDOC commit：feat/fix: 简述 + 空行 + 原因
@@ -116,6 +124,7 @@ acceptance: <用户验收原话摘要>
 
 ## 禁止
 - 在非 kne-union 仓库套用本流程
+- 跳过 2.1 未合并 PR 检查；或把依赖仓库中仍为 open 的 PR 当作已发布
 - 有未提交改动时跳过 stash 直接改代码，或因有 WIP 就终止流程
 - stash 后流程结束或中止却不还原（除非 pop 冲突已说明）
 - pop 冲突后执行 `stash drop`
